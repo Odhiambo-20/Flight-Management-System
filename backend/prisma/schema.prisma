@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  phoneNumber   String
+  dateOfBirth   DateTime
+  nationality   String
+  reservations  FlightReservation[]
+  bookings      HotelBooking[]
+  payments      Payment[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Flight {
+  id            String    @id @default(uuid())
+  flightNumber  String    @unique
+  from          String
+  to            String
+  departureTime DateTime
+  arrivalTime   DateTime
+  availableSeats Int
+  price         Float
+  reservations  FlightReservation[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model FlightReservation {
+  id          String    @id @default(uuid())
+  userId      String
+  flightId    String
+  seatNumber  String
+  status      String    // PENDING, CONFIRMED, CANCELLED
+  user        User      @relation(fields: [userId], references: [id])
+  flight      Flight    @relation(fields: [flightId], references: [id])
+  payment     Payment?  @relation(fields: [paymentId], references: [id])
+  paymentId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([flightId, seatNumber])
+}
+
+model Hotel {
+  id          String    @id @default(uuid())
+  name        String
+  location    String
+  rooms       HotelRoom[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model HotelRoom {
+  id          String    @id @default(uuid())
+  hotelId     String
+  roomNumber  String
+  type        String
+  price       Float
+  available   Boolean   @default(true)
+  hotel       Hotel     @relation(fields: [hotelId], references: [id])
+  bookings    HotelBooking[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([hotelId, roomNumber])
+}
+
+model HotelBooking {
+  id          String    @id @default(uuid())
+  userId      String
+  roomId      String
+  checkIn     DateTime
+  checkOut    DateTime
+  status      String    // PENDING, CONFIRMED, CANCELLED
+  user        User      @relation(fields: [userId], references: [id])
+  room        HotelRoom @relation(fields: [roomId], references: [id])
+  payment     Payment?  @relation(fields: [paymentId], references: [id])
+  paymentId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Payment {
+  id                String            @id @default(uuid())
+  userId            String
+  amount            Float
+  currency          String
+  status            String            // PENDING, COMPLETED, FAILED
+  type              String            // FLIGHT, HOTEL
+  provider          String            // STRIPE, PAYPAL, MPESA
+  transactionId     String?           @unique
+  referenceId       String            @unique  
+  metadata          Json?
+  user              User              @relation(fields: [userId], references: [id])
+  flightReservation FlightReservation[]
+  hotelBooking      HotelBooking[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}

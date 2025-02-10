@@ -15,6 +15,8 @@ import MyBookings from "./pages/MyBookings";
 import Search from "./pages/Search";
 import HotelBooking from "./pages/HotelBooking";
 import Airpay from "./pages/Airpay";
+import CheckIn from "./pages/checkin";
+
 
 function App() {
  return (
@@ -35,6 +37,7 @@ function App() {
        <Route path="/mybookings" element={<MyBookings />} /> 
        <Route path="/hotelbooking" element={<HotelBooking />} />
        <Route path="/payment" element={<Airpay />} />
+        <Route path="/checkin" element={<CheckIn />} />
      </Routes>
      <ChatButton/>
    </BrowserRouter>

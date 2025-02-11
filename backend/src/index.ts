@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import { flightController } from './controllers/flightController';
+import paymentController from './controllers/paymentController';
 import cors from 'cors';
 import { config } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
@@ -8,7 +9,15 @@ import bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { Prisma } from '@prisma/client'
 
+
+// Extend Express Request type to include rawBody
+interface ExtendedRequest extends Request {
+  rawBody?: string;
+}
+
 config();
+
+
 
 const prisma = new PrismaClient();
 const pool = new Pool({
@@ -28,6 +37,24 @@ interface HotelSearchCriteria {
   maxPrice?: number;
   roomType?: string;
 }
+
+// Auth middleware
+const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication token required' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret') as { userId: string };
+    req.body.userId = decoded.userId;
+    next();
+  } catch (error) {
+    res.status(403).json({ message: 'Invalid or expired token' });
+  }
+};
 
 // Auth Controller
 class AuthController {
@@ -366,7 +393,14 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ 
+  verify: (req: ExtendedRequest, res: Response, buf: Buffer) => {
+    const url = req.url; // Using req.url instead of originalUrl
+    if (url.startsWith('/api/payments/webhook')) {
+      req.rawBody = buf.toString();
+    }
+  }
+}));
 app.options('*', cors(corsOptions));
 
 // Routes
@@ -382,6 +416,20 @@ router.get('/flights/search', (req, res) => flightController.listFlights(req, re
 router.get('/flights/:flightId', (req, res) => flightController.getFlightDetails(req, res));
 router.post('/flights/reserve', (req, res) => flightController.reserveFlight(req, res));
 router.post('/flights/reservations/:reservationId/cancel', (req, res) => flightController.cancelReservation(req, res));
+
+// Payment routes
+router.post('/payments/process', authenticateToken, (req, res) => paymentController.processPayment(req, res));
+router.get('/payments/:transactionId/status', authenticateToken, (req, res) => 
+  paymentController.getPaymentStatus(req, res)
+);
+router.post('/payments/webhook/:provider', (req, res) => paymentController.handleWebhook(req, res));
+
+
+// Update the M-Pesa routes to use the correct method binding
+
+router.post('/payments/mpesa/stkpush', paymentController.StkPush);
+router.post('/payments/mpesa/callback', paymentController.callback);
+
 
 // Health check endpoints
 router.get('/health', (_req: Request, res: Response) => {
@@ -445,6 +493,9 @@ app.listen(port, () => {
   console.log('- GET  /api/flights/:flightId');       // New
   console.log('- POST /api/flights/reserve'); 
   console.log('- POST /api/flights/reservations/:reservationId/cancel'); // New
+  console.log('- POST /api/payments/process');
+  console.log('- GET  /api/payments/:transactionId/status');
+  console.log('- POST /api/payments/webhook/:provider');
   console.log('- GET  /api/health');
   console.log('- GET  /api/db-health');
 });

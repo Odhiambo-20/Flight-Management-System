@@ -1,9 +1,10 @@
-import { PayPalHttpClient, Environment } from '@paypal/checkout-server-sdk';
+import { core } from '@paypal/checkout-server-sdk';
 import { PrismaClient } from '@prisma/client';
 import Stripe from 'stripe';
 
 const prisma = new PrismaClient();
 
+// Type definitions
 interface PaymentResult {
   success: boolean;
   transactionId?: string;
@@ -15,8 +16,8 @@ interface PaymentInitiationRequest {
   currency: string;
   type: 'FLIGHT' | 'HOTEL';
   referenceId: string;
-  customerId: string;
   description?: string;
+  userId: string;
 }
 
 interface CreditCardDetails {
@@ -30,9 +31,57 @@ interface MPesaDetails {
   phoneNumber: string;
 }
 
+interface PayPalWebhookPayload {
+  event_type: 'PAYMENT.CAPTURE.COMPLETED' | 'PAYMENT.CAPTURE.DENIED' | 'PAYMENT.CAPTURE.DECLINED' | 'PAYMENT.CAPTURE.PENDING';
+  resource: {
+    id: string;
+    [key: string]: any;
+  };
+}
+
+interface MPesaWebhookPayload {
+  Body: {
+    stkCallback: {
+      ResultCode: number;
+      ResultDesc: string;
+      TransactionId: string;
+      CheckoutRequestID: string;
+      Amount: number;
+      MpesaReceiptNumber: string;
+    };
+  };
+}
+
+interface StripeWebhookPayload {
+  body: string;
+  headers: {
+    'stripe-signature': string;
+  };
+}
+
+// JSON-compatible metadata interfaces
+interface PayPalMetadata extends Record<string, any> {
+  paypalEvent: PayPalWebhookPayload['event_type'];
+  rawPayload: Record<string, any>;
+}
+
+interface MPesaMetadata extends Record<string, any> {
+  mpesaReceiptNumber: string;
+  mpesaTransactionId: string;
+  resultDescription: string;
+  rawPayload: Record<string, any>;
+}
+
+interface StripeMetadata extends Record<string, any> {
+  stripeEvent: 'payment_intent.succeeded' | 'payment_intent.payment_failed' | 'payment_intent.processing';
+  rawPayload: Record<string, any>;
+}
+
+type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
+
 export class PaymentService {
   private stripe: Stripe;
-  private paypalClient: PayPalHttpClient;
+  private paypalClient: core.PayPalHttpClient;
 
   constructor(
     stripeSecretKey: string,
@@ -41,13 +90,13 @@ export class PaymentService {
     private readonly isProduction: boolean = false
   ) {
     this.stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2024-12-18.acacia'
+      apiVersion: '2023-10-16'
     });
     
     const environment = isProduction 
-      ? Environment.PRODUCTION() 
-      : Environment.SANDBOX();
-    this.paypalClient = new PayPalHttpClient(environment);
+      ? new core.LiveEnvironment(paypalClientId, paypalClientSecret)
+      : new core.SandboxEnvironment(paypalClientId, paypalClientSecret);
+    this.paypalClient = new core.PayPalHttpClient(environment);
   }
 
   async processCreditCardPayment(
@@ -55,7 +104,6 @@ export class PaymentService {
     cardDetails: CreditCardDetails
   ): Promise<PaymentResult> {
     try {
-      // Create payment method
       const paymentMethod = await this.stripe.paymentMethods.create({
         type: 'card',
         card: {
@@ -66,21 +114,18 @@ export class PaymentService {
         },
       });
 
-      // Create payment intent
       const paymentIntent = await this.stripe.paymentIntents.create({
-        amount: Math.round(paymentDetails.amount * 100), // Convert to cents
+        amount: Math.round(paymentDetails.amount * 100),
         currency: paymentDetails.currency.toLowerCase(),
         payment_method: paymentMethod.id,
         confirm: true,
         description: paymentDetails.description,
         metadata: {
-          customerId: paymentDetails.customerId,
           referenceId: paymentDetails.referenceId,
           type: paymentDetails.type
         }
       });
 
-      // Create payment record
       await prisma.payment.create({
         data: {
           transactionId: paymentIntent.id,
@@ -89,12 +134,16 @@ export class PaymentService {
           status: 'PENDING',
           type: paymentDetails.type,
           referenceId: paymentDetails.referenceId,
-          customerId: paymentDetails.customerId,
           provider: 'STRIPE',
+          user: {
+            connect: {
+              id: paymentDetails.userId
+            }
+          },
           metadata: {
             stripeEvent: 'payment_intent.created',
-            rawPayload: paymentIntent
-          }
+            rawPayload: JSON.parse(JSON.stringify(paymentIntent))
+          } as Record<string, any>
         }
       });
 
@@ -116,10 +165,8 @@ export class PaymentService {
     mpesaDetails: MPesaDetails
   ): Promise<PaymentResult> {
     try {
-      // Note: Actual M-Pesa API integration would go here
       const checkoutRequestId = `MPESA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
-      // Create payment record
       await prisma.payment.create({
         data: {
           transactionId: checkoutRequestId,
@@ -128,12 +175,16 @@ export class PaymentService {
           status: 'PENDING',
           type: paymentDetails.type,
           referenceId: paymentDetails.referenceId,
-          customerId: paymentDetails.customerId,
           provider: 'MPESA',
+          user: {
+            connect: {
+              id: paymentDetails.userId
+            }
+          },
           metadata: {
             phoneNumber: mpesaDetails.phoneNumber,
             initiatedAt: new Date().toISOString()
-          }
+          } as Record<string, any>
         }
       });
 
@@ -154,10 +205,8 @@ export class PaymentService {
     paymentDetails: PaymentInitiationRequest
   ): Promise<PaymentResult> {
     try {
-      // Note: Actual PayPal order creation would go here
       const orderId = `PP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
-      // Create payment record
       await prisma.payment.create({
         data: {
           transactionId: orderId,
@@ -166,12 +215,16 @@ export class PaymentService {
           status: 'PENDING',
           type: paymentDetails.type,
           referenceId: paymentDetails.referenceId,
-          customerId: paymentDetails.customerId,
           provider: 'PAYPAL',
+          user: {
+            connect: {
+              id: paymentDetails.userId
+            }
+          },
           metadata: {
             paypalEvent: 'PAYMENT.CAPTURE.PENDING',
             initiatedAt: new Date().toISOString()
-          }
+          } as Record<string, any>
         }
       });
 
@@ -197,13 +250,11 @@ export class PaymentService {
         currency: paymentDetails.currency.toLowerCase(),
         description: paymentDetails.description,
         metadata: {
-          customerId: paymentDetails.customerId,
           referenceId: paymentDetails.referenceId,
           type: paymentDetails.type
         }
       });
 
-      // Create payment record
       await prisma.payment.create({
         data: {
           transactionId: paymentIntent.id,
@@ -212,12 +263,16 @@ export class PaymentService {
           status: 'PENDING',
           type: paymentDetails.type,
           referenceId: paymentDetails.referenceId,
-          customerId: paymentDetails.customerId,
           provider: 'STRIPE',
+          user: {
+            connect: {
+              id: paymentDetails.userId
+            }
+          },
           metadata: {
             stripeEvent: 'payment_intent.created',
-            rawPayload: paymentIntent
-          }
+            rawPayload: JSON.parse(JSON.stringify(paymentIntent))
+          } as Record<string, any>
         }
       });
 
@@ -234,7 +289,6 @@ export class PaymentService {
     }
   }
 
-  // Make webhook handlers public
   async handlePayPalWebhook(payload: PayPalWebhookPayload): Promise<void> {
     return this._handlePayPalWebhook(payload);
   }
@@ -246,13 +300,12 @@ export class PaymentService {
   async handleStripeWebhook(payload: StripeWebhookPayload): Promise<void> {
     return this._handleStripeWebhook(payload);
   }
-// ... (previous code remains the same until private implementations)
 
   private async _handlePayPalWebhook(payload: PayPalWebhookPayload): Promise<void> {
     try {
       const event = payload.event_type;
       const resourceId = payload.resource.id;
-      let paymentStatus: 'PENDING' | 'COMPLETED' | 'FAILED';
+      let paymentStatus: PaymentStatus;
 
       switch (event) {
         case 'PAYMENT.CAPTURE.COMPLETED':
@@ -270,8 +323,8 @@ export class PaymentService {
           return;
       }
 
-      const metadata: PayPalMetadata = {
-        paypalEvent: event as PayPalMetadata['paypalEvent'],
+      const metadata: Record<string, any> = {
+        paypalEvent: event,
         rawPayload: JSON.parse(JSON.stringify(payload))
       };
 
@@ -285,21 +338,7 @@ export class PaymentService {
       });
 
       if (paymentStatus === 'COMPLETED') {
-        const payment = await prisma.payment.findUnique({
-          where: { transactionId: resourceId }
-        });
-
-        if (payment?.type === 'FLIGHT') {
-          await prisma.flightReservation.update({
-            where: { id: payment.referenceId },
-            data: { status: 'CONFIRMED' }
-          });
-        } else if (payment?.type === 'HOTEL') {
-          await prisma.hotelBooking.update({
-            where: { id: payment.referenceId },
-            data: { status: 'CONFIRMED' }
-          });
-        }
+        await this._updateBookingStatus(resourceId);
       }
     } catch (error) {
       console.error('PayPal webhook processing failed:', error);
@@ -314,14 +353,12 @@ export class PaymentService {
         ResultDesc,
         TransactionId,
         CheckoutRequestID,
-        Amount,
         MpesaReceiptNumber
       } = payload.Body.stkCallback;
 
-      const paymentStatus: 'PENDING' | 'COMPLETED' | 'FAILED' = 
-        ResultCode === 0 ? 'COMPLETED' : 'FAILED';
+      const paymentStatus: PaymentStatus = ResultCode === 0 ? 'COMPLETED' : 'FAILED';
 
-      const metadata: MPesaMetadata = {
+      const metadata: Record<string, any> = {
         mpesaReceiptNumber: MpesaReceiptNumber,
         mpesaTransactionId: TransactionId,
         resultDescription: ResultDesc,
@@ -338,21 +375,7 @@ export class PaymentService {
       });
 
       if (paymentStatus === 'COMPLETED') {
-        const payment = await prisma.payment.findUnique({
-          where: { transactionId: CheckoutRequestID }
-        });
-
-        if (payment?.type === 'FLIGHT') {
-          await prisma.flightReservation.update({
-            where: { id: payment.referenceId },
-            data: { status: 'CONFIRMED' }
-          });
-        } else if (payment?.type === 'HOTEL') {
-          await prisma.hotelBooking.update({
-            where: { id: payment.referenceId },
-            data: { status: 'CONFIRMED' }
-          });
-        }
+        await this._updateBookingStatus(CheckoutRequestID);
       }
     } catch (error) {
       console.error('M-Pesa webhook processing failed:', error);
@@ -368,7 +391,7 @@ export class PaymentService {
         process.env.STRIPE_WEBHOOK_SECRET!
       );
 
-      let paymentStatus: 'PENDING' | 'COMPLETED' | 'FAILED';
+      let paymentStatus: PaymentStatus;
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
       switch (event.type) {
@@ -386,7 +409,7 @@ export class PaymentService {
           return;
       }
 
-      const metadata: StripeMetadata = {
+      const metadata: Record<string, any> = {
         stripeEvent: event.type as StripeMetadata['stripeEvent'],
         rawPayload: JSON.parse(JSON.stringify(event.data.object))
       };
@@ -401,28 +424,29 @@ export class PaymentService {
       });
 
       if (paymentStatus === 'COMPLETED') {
-        const payment = await prisma.payment.findUnique({
-          where: { transactionId: paymentIntent.id }
-        });
-
-        if (payment?.type === 'FLIGHT') {
-          await prisma.flightReservation.update({
-            where: { id: payment.referenceId },
-            data: { status: 'CONFIRMED' }
-          });
-        } else if (payment?.type === 'HOTEL') {
-          await prisma.hotelBooking.update({
-            where: { id: payment.referenceId },
-            data: { status: 'CONFIRMED' }
-          });
-        }
+        await this._updateBookingStatus(paymentIntent.id);
       }
     } catch (error) {
       console.error('Stripe webhook processing failed:', error);
       throw error;
     }
   }
+
+  private async _updateBookingStatus(transactionId: string): Promise<void> {
+    const payment = await prisma.payment.findUnique({
+      where: { transactionId }
+    });
+
+    if (payment?.type === 'FLIGHT') {
+      await prisma.flightReservation.update({
+        where: { id: payment.referenceId },
+        data: { status: 'CONFIRMED' }
+      });
+    } else if (payment?.type === 'HOTEL') {
+      await prisma.hotelBooking.update({
+        where: { id: payment.referenceId },
+        data: { status: 'CONFIRMED' }
+      });
+    }
+  }
 }
-
-
- 

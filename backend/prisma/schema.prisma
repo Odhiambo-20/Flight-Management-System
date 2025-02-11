@@ -7,8 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentType {
+  FLIGHT
+  HOTEL
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYPAL
+  MPESA
+  CREDIT_CARD
+}
+
 model User {
-  id            String    @id @default(uuid())
+  id            String    @id @default(cuid())
   email         String    @unique
   password      String
   firstName     String
@@ -38,19 +57,21 @@ model Flight {
 }
 
 model FlightReservation {
-  id          String    @id @default(uuid())
-  userId      String
-  flightId    String
-  seatNumber  String
-  status      String    // PENDING, CONFIRMED, CANCELLED
-  user        User      @relation(fields: [userId], references: [id])
-  flight      Flight    @relation(fields: [flightId], references: [id])
-  payment     Payment?  @relation(fields: [paymentId], references: [id])
-  paymentId   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  userId        String
+  flightId      String
+  seatNumber    String
+  status        String    // PENDING, CONFIRMED, CANCELLED
+  paymentStatus String?   @default("PENDING") // PENDING, PAID, REFUNDED
+  user          User      @relation(fields: [userId], references: [id])
+  flight        Flight    @relation(fields: [flightId], references: [id])
+  payment       Payment?  @relation(fields: [paymentId], references: [id])
+  paymentId     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([flightId, seatNumber])
+  @@index([paymentId])
 }
 
 model Hotel {
@@ -78,34 +99,47 @@ model HotelRoom {
 }
 
 model HotelBooking {
-  id          String    @id @default(uuid())
-  userId      String
-  roomId      String
-  checkIn     DateTime
-  checkOut    DateTime
-  status      String    // PENDING, CONFIRMED, CANCELLED
-  user        User      @relation(fields: [userId], references: [id])
-  room        HotelRoom @relation(fields: [roomId], references: [id])
-  payment     Payment?  @relation(fields: [paymentId], references: [id])
-  paymentId   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  userId        String
+  roomId        String
+  checkIn       DateTime
+  checkOut      DateTime
+  status        String    // PENDING, CONFIRMED, CANCELLED
+  paymentStatus String?   @default("PENDING") // PENDING, PAID, REFUNDED
+  user          User      @relation(fields: [userId], references: [id])
+  room          HotelRoom @relation(fields: [roomId], references: [id])
+  payment       Payment?  @relation(fields: [paymentId], references: [id])
+  paymentId     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([paymentId])
 }
 
 model Payment {
-  id                String            @id @default(uuid())
-  userId            String
-  amount            Float
-  currency          String
-  status            String            // PENDING, COMPLETED, FAILED
-  type              String            // FLIGHT, HOTEL
-  provider          String            // STRIPE, PAYPAL, MPESA
-  transactionId     String?           @unique
-  referenceId       String            @unique  
-  metadata          Json?
-  user              User              @relation(fields: [userId], references: [id])
-  flightReservation FlightReservation[]
-  hotelBooking      HotelBooking[]
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id              String          @id @default(cuid())
+  transactionId   String          @unique
+  amount          Float
+  currency        String
+  status          PaymentStatus   @default(PENDING)
+  type            PaymentType
+  provider        PaymentProvider
+  referenceId     String          // References either FlightReservation or HotelBooking
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+  flightBookings  FlightReservation[]
+  hotelBookings   HotelBooking[]
+  metadata        Json?           // Stores provider-specific details
+  description     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  completedAt     DateTime?
+  refundedAt      DateTime?
+  refundId        String?
+  refundReason    String?
+
+  @@index([userId])
+  @@index([transactionId])
+  @@index([referenceId])
+  @@index([status])
 }

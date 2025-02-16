@@ -45,18 +45,32 @@
             padding: 20px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
         .chat-header img {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            margin-right: 15px;
         }
 
         .chat-header .status {
             font-size: 0.8em;
             color: #7f8c8d;
+        }
+
+        .language-select {
+            padding: 5px;
+            border-radius: 5px;
+            background: white;
+            border: none;
+            color: var(--primary-color);
         }
 
         .chat-messages {
@@ -152,6 +166,28 @@
             animation: typing 1s infinite;
         }
 
+        .suggestions {
+            display: flex;
+            gap: 10px;
+            padding: 10px 20px;
+            overflow-x: auto;
+            background: #f8f9fa;
+        }
+
+        .suggestion-chip {
+            padding: 8px 15px;
+            background: #e9ecef;
+            border-radius: 20px;
+            font-size: 0.9em;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.3s;
+        }
+
+        .suggestion-chip:hover {
+            background: #dee2e6;
+        }
+
         @keyframes typing {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-5px); }
@@ -159,30 +195,67 @@
 
         .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
         .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        .connection-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            display: none;
+        }
+
+        .connection-status.connected {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .connection-status.disconnected {
+            background: #e74c3c;
+            color: white;
+        }
     </style>
 </head>
 <body>
+    <div class="connection-status" id="connection-status">Connecting...</div>
     <div class="chat-container">
         <div class="chat-header">
-
-
-            
-            <img src="chatbot.webp" alt="Lewinsky">
-
-
-            <div>
-                <h2>Lewinsky</h2>
-                <div class="status">Airport Assistant</div>
+            <div class="chat-header-left">
+                <img src="chatbot.webp" alt="Lewinsky">
+                <div>
+                    <h2>Lewinsky</h2>
+                    <div class="status">Airport Assistant</div>
+                </div>
             </div>
+            <select class="language-select" id="language-select">
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="zh">中文</option>
+                <option value="ja">日本語</option>
+            </select>
         </div>
         
         <div class="chat-messages" id="chat-messages">
             <div class="message bot-message">
                 <div class="message-content">
-                    Hello! I'm Lewinsky, your airport assistant. How can I help you today?
+                    Hello! I'm Lewinsky, your airport assistant. I can help you with:
+                    • Flight status and delays
+                    • Airport information
+                    • Weather conditions
+                    • Passenger flow updates
                 </div>
                 <span class="timestamp">Now</span>
             </div>
+        </div>
+
+        <div class="suggestions" id="suggestions">
+            <div class="suggestion-chip">Status of AA123</div>
+            <div class="suggestion-chip">Weather at JFK</div>
+            <div class="suggestion-chip">Is LAX busy?</div>
+            <div class="suggestion-chip">Delays at SFO</div>
         </div>
 
         <div class="typing-indicator" id="typing-indicator">
@@ -201,13 +274,46 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
-        const socket = io();
+        let ws;
         const chatMessages = document.getElementById('chat-messages');
         const userInput = document.getElementById('user-input');
         const sendButton = document.getElementById('send-button');
         const typingIndicator = document.getElementById('typing-indicator');
+        const languageSelect = document.getElementById('language-select');
+        const connectionStatus = document.getElementById('connection-status');
+        const suggestions = document.getElementById('suggestions');
+
+        function connectWebSocket() {
+            ws = new WebSocket('ws://127.0.0.1:8000/ws');
+            
+            ws.onopen = () => {
+                console.log('Connected to WebSocket');
+                connectionStatus.textContent = 'Connected';
+                connectionStatus.className = 'connection-status connected';
+                setTimeout(() => {
+                    connectionStatus.style.display = 'none';
+                }, 2000);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket connection closed');
+                connectionStatus.textContent = 'Disconnected - Reconnecting...';
+                connectionStatus.className = 'connection-status disconnected';
+                connectionStatus.style.display = 'block';
+                setTimeout(connectWebSocket, 1000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onmessage = (event) => {
+                hideTypingIndicator();
+                const response = JSON.parse(event.data);
+                addMessage(response.response, false);
+            };
+        }
 
         function addMessage(message, isUser = false) {
             const messageDiv = document.createElement('div');
@@ -238,34 +344,35 @@
 
         function sendMessage() {
             const message = userInput.value.trim();
-            if (message) {
+            if (message && ws.readyState === WebSocket.OPEN) {
                 addMessage(message, true);
-                socket.emit('user_message', { message: message });
+                ws.send(JSON.stringify({
+                    message: message,
+                    language: languageSelect.value
+                }));
                 userInput.value = '';
                 showTypingIndicator();
             }
         }
 
+        // Event Listeners
         sendButton.addEventListener('click', sendMessage);
+        
         userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 sendMessage();
             }
         });
 
-        socket.on('bot_response', (data) => {
-            hideTypingIndicator();
-            addMessage(data.message);
+        suggestions.addEventListener('click', (e) => {
+            if (e.target.classList.contains('suggestion-chip')) {
+                userInput.value = e.target.textContent;
+                sendMessage();
+            }
         });
 
-        socket.on('connect', () => {
-            console.log('Connected to server');
-        });
-
-        socket.on('connect_error', (error) => {
-            console.error('Connection error:', error);
-            addMessage('Sorry, I\'m having trouble connecting to the server. Please try again later.');
-        });
+        // Initial connection
+        connectWebSocket();
     </script>
 </body>
 </html>

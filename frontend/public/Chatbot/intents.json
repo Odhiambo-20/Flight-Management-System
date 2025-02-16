@@ -1,0 +1,150 @@
+{
+    "intents": {
+        "greeting": {
+            "patterns": [
+                "hello",
+                "hi",
+                "hey there",
+                "good morning",
+                "good afternoon",
+                "good evening",
+                "hi there",
+                "greetings",
+                "what's up",
+                "howdy"
+            ],
+            "responses": [
+                "Hello! How can I help you with your flight today?",
+                "Hi there! Looking for flight information?",
+                "Welcome! How may I assist you with your travel plans?",
+                "Greetings! What flight information can I help you with?"
+            ]
+        },
+        "flight_status": {
+            "patterns": [
+                "where is flight {flight_number}",
+                "what's the status of {flight_number}",
+                "track flight {flight_number}",
+                "is {flight_number} on schedule",
+                "what's happening with {flight_number}",
+                "can you check flight {flight_number}",
+                "tell me about {flight_number}",
+                "flight tracker for {flight_number}",
+                "location of flight {flight_number}",
+                "current position of {flight_number}"
+            ],
+            "context_required": ["flight_number"],
+            "responses": [
+                "Flight {flight_number} is currently {status}",
+                "Your flight {flight_number} operated by {operator} is {status}",
+                "The current status of flight {flight_number} is {status}"
+            ]
+        },
+        "delay_prediction": {
+            "patterns": [
+                "will {flight_number} be delayed",
+                "is there a delay for {flight_number}",
+                "what's the delay prediction for {flight_number}",
+                "chances of delay for {flight_number}",
+                "how likely is {flight_number} to be delayed",
+                "delay forecast for {flight_number}",
+                "expected delays for {flight_number}",
+                "is {flight_number} running late",
+                "on-time performance of {flight_number}",
+                "arrival prediction for {flight_number}"
+            ],
+            "context_required": ["flight_number"],
+            "responses": [
+                "Based on current conditions, flight {flight_number} has a predicted delay of {delay_minutes} minutes",
+                "The delay prediction for {flight_number} is {delay_minutes} minutes",
+                "We expect flight {flight_number} to be delayed by approximately {delay_minutes} minutes"
+            ]
+        },
+        "gate_information": {
+            "patterns": [
+                "what gate is flight {flight_number}",
+                "which gate for {flight_number}",
+                "gate number for {flight_number}",
+                "where does {flight_number} depart from",
+                "departure gate {flight_number}",
+                "arrival gate for {flight_number}",
+                "what terminal is {flight_number}",
+                "terminal information for {flight_number}"
+            ],
+            "context_required": ["flight_number"],
+            "responses": [
+                "Flight {flight_number} departs from Gate {gate_number} in Terminal {terminal}",
+                "You can find flight {flight_number} at Gate {gate_number}",
+                "The gate assignment for {flight_number} is Gate {gate_number}, Terminal {terminal}"
+            ]
+        },
+        "baggage_info": {
+            "patterns": [
+                "where is my baggage for {flight_number}",
+                "baggage claim for {flight_number}",
+                "luggage status {flight_number}",
+                "track my bags {flight_number}",
+                "which carousel {flight_number}",
+                "baggage delay {flight_number}",
+                "lost baggage {flight_number}"
+            ],
+            "context_required": ["flight_number"],
+            "responses": [
+                "Baggage from flight {flight_number} will arrive at carousel {carousel_number}",
+                "Your bags from {flight_number} can be collected at carousel {carousel_number}",
+                "Baggage claim for flight {flight_number} is at carousel {carousel_number} in terminal {terminal}"
+            ]
+        },
+        "boarding_time": {
+            "patterns": [
+                "when does boarding start for {flight_number}",
+                "boarding time {flight_number}",
+                "when should I board {flight_number}",
+                "what time is boarding for {flight_number}",
+                "boarding call {flight_number}",
+                "when to get to gate {flight_number}"
+            ],
+            "context_required": ["flight_number"],
+            "responses": [
+                "Boarding for flight {flight_number} begins at {boarding_time}",
+                "Please arrive at Gate {gate_number} by {boarding_time} for flight {flight_number}",
+                "Boarding will commence at {boarding_time} for flight {flight_number}"
+            ]
+        },
+        "flight_duration": {
+            "patterns": [
+                "how long is flight {flight_number}",
+                "duration of {flight_number}",
+                "when does {flight_number} land",
+                "arrival time for {flight_number}",
+                "flight length {flight_number}",
+                "travel time {flight_number}"
+            ],
+            "context_required": ["flight_number"],
+            "responses": [
+                "Flight {flight_number} has a duration of {duration} and lands at {arrival_time}",
+                "The journey time for flight {flight_number} is {duration}",
+                "You will arrive at {arrival_time} after a {duration} flight"
+            ]
+        },
+        "goodbye": {
+            "patterns": [
+                "goodbye",
+                "bye",
+                "see you later",
+                "thanks bye",
+                "thank you goodbye",
+                "that's all",
+                "end",
+                "quit",
+                "bye bye"
+            ],
+            "responses": [
+                "Goodbye! Have a safe flight!",
+                "Thank you for using our flight service. Have a great trip!",
+                "Safe travels! Goodbye!",
+                "Thanks for checking in with us. Have a wonderful journey!"
+            ]
+        }
+    }
+}

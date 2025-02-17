@@ -3,6 +3,7 @@ import { MessageCircle, Instagram, Facebook, Youtube, Linkedin, Twitter } from '
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
+import ChatWindow from '../components/ChatWindow';
 import KualaLumpur from '/src/assets/Kuala Lumpur.jpg';
 import Nairobi from '/src/assets/Nairobi.jpg';
 import Bangkok from '/src/assets/Bangkok.jpg';
@@ -224,9 +225,8 @@ const Home = () => {
       </footer>
 
       {/* Chat Button */}
-      <button className="fixed bottom-6 right-6 bg-gray-600 text-white p-4 rounded-full shadow-lg hover:bg-gray-700">
-        <MessageCircle className="w-6 h-6" />
-      </button>
+      <ChatWindow />
+      
     </div>
   );
 };

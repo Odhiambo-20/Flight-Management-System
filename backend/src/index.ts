@@ -17,8 +17,6 @@ interface ExtendedRequest extends Request {
 
 config();
 
-
-
 const prisma = new PrismaClient();
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -131,8 +129,6 @@ class AuthController {
     }
   };
   
- 
-
   public signin: RequestHandler = async (req: Request, res: Response): Promise<void> => {
     try {
       const { email, password } = req.body;
@@ -315,7 +311,7 @@ class HotelController {
 
       const isRoomAvailable = await prisma.hotelRoom.findFirst({
         where: {
-          id: roomId,
+          id: String(roomId),
           available: true,
           bookings: {
             none: {
@@ -374,6 +370,64 @@ class HotelController {
       });
     }
   };
+
+  // New method to check room availability
+  public checkRoomAvailability: RequestHandler = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { roomId } = req.params;
+      const { checkIn, checkOut } = req.query;
+      
+      if (!checkIn || !checkOut || typeof checkIn !== 'string' || typeof checkOut !== 'string') {
+        res.status(400).json({
+          success: false,
+          message: 'Check-in and check-out dates are required'
+        });
+        return;
+      }
+
+      console.log(`Checking availability for room ${roomId} between ${checkIn} and ${checkOut}`);
+      
+      const isRoomAvailable = await prisma.hotelRoom.findFirst({
+        where: {
+          id: String(roomId),
+          available: true,
+          bookings: {
+            none: {
+              AND: [
+                {
+                  checkOut: {
+                    gt: new Date(checkIn)
+                  }
+                },
+                {
+                  checkIn: {
+                    lt: new Date(checkOut)
+                  }
+                }
+              ]
+            }
+          }
+        }
+      });
+
+      console.log('Room availability check result:', isRoomAvailable ? 'Available' : 'Not available');
+      
+      res.json({
+        success: true,
+        available: !!isRoomAvailable,
+        message: isRoomAvailable 
+          ? "Room is available for the selected dates" 
+          : "Room is not available for the selected dates"
+      });
+    } catch (error) {
+      console.error('Room availability check error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error checking room availability',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
 }
 
 // Initialize controllers
@@ -410,7 +464,8 @@ router.post('/auth/signin', authController.signin);
 router.get('/hotels/search', hotelController.searchWithCriteria);
 router.post('/hotels/search', hotelController.searchWithCriteria);
 router.post('/hotels/book', hotelController.bookRoom);
-
+// Add the new route for checking room availability
+router.get('/hotels/rooms/:roomId/availability', hotelController.checkRoomAvailability);
 
 router.get('/flights/search', (req, res) => flightController.listFlights(req, res));
 router.get('/flights/:flightId', (req, res) => flightController.getFlightDetails(req, res));
@@ -426,7 +481,6 @@ router.post('/payments/webhook/:provider', (req, res) => paymentController.handl
 
 
 // Update the M-Pesa routes to use the correct method binding
-
 router.post('/payments/mpesa/stkpush', paymentController.StkPush);
 router.post('/payments/mpesa/callback', paymentController.callback);
 
@@ -489,10 +543,11 @@ app.listen(port, () => {
   console.log('- GET  /api/hotels/search');
   console.log('- POST /api/hotels/search');
   console.log('- POST /api/hotels/book');
-  console.log('- GET  /api/flights/search');          // New
-  console.log('- GET  /api/flights/:flightId');       // New
+  console.log('- GET  /api/hotels/rooms/:roomId/availability');  // New endpoint
+  console.log('- GET  /api/flights/search');
+  console.log('- GET  /api/flights/:flightId');
   console.log('- POST /api/flights/reserve'); 
-  console.log('- POST /api/flights/reservations/:reservationId/cancel'); // New
+  console.log('- POST /api/flights/reservations/:reservationId/cancel');
   console.log('- POST /api/payments/process');
   console.log('- GET  /api/payments/:transactionId/status');
   console.log('- POST /api/payments/webhook/:provider');

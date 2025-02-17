@@ -80,39 +80,63 @@ const Hotel = () => {
 
   const news = [
     {
+      id: 1,
       category: 'Luxury Hotel',
       title: "Valentine's Joy",
       date: 'February 14, 2024',
       author: 'argyle',
       image: hotel1,
+      price: 329,
+      description: 'Enjoy breathtaking ocean views from our deluxe couple room with premium amenities.',
+      amenities: ['Free WiFi', 'Room Service', 'King Size Bed', 'Balcony', 'Ocean View', 'Premium Toiletries']
     },
+
     {
+      id: 2,
       category: 'Luxury Hotel',
       title: 'Plans for the year',
       date: 'January 11, 2024',
       author: 'argyle',
       image: hotel2,
+      price: 299,
+      description: 'Experience the ultimate romantic getaway in our luxurious Valentine suite with panoramic city views and premium amenities.',
+      amenities: ['Free WiFi', 'Room Service', 'King Size Bed', 'Jacuzzi', 'City View', 'Mini Bar']
     },
+    
     {
+      id: 3,
       category: 'Couple Room',
       title: 'The Grand Opening',
       date: 'December 15, 2023',
       author: 'argyle',
       image: hotel3,
+      price: 399,
+      description: 'Start your year in style with our premium executive penthouse featuring modern design and exclusive services.',
+      amenities: ['Free WiFi', 'Room Service', 'King Size Bed', 'Mini Bar', 'Ocean View', 'Private Terrace']
     },
+
     {
+      id: 4,
       category: 'Couple Room',
       title: 'The Grand Opening',
       date: 'December 15, 2023',
       author: 'argyle',
       image: hotel4,
+      price: 259,
+      description: 'Perfect for romantic getaways, our honeymoon suite offers intimate spaces and luxury amenities.',
+      amenities: ['Free WiFi', 'Room Service', 'Queen Size Bed', 'Bathtub', 'Garden View', 'Breakfast Included']
     },
+
     {
+      id: 5,
       category: 'Couple Room',
       title: 'The Grand Opening',
       date: 'December 15, 2023',
       author: 'argyle',
       image: hotel5,
+      price: 329,
+      description: 'Enjoy breathtaking ocean views from our deluxe couple room with premium amenities.',
+      amenities: ['Free WiFi', 'Room Service', 'King Size Bed', 'Balcony', 'Ocean View', 'Premium Toiletries']
     },
   ];
 
@@ -223,9 +247,13 @@ const Hotel = () => {
                     )}
                     
 
-                    <Link to="/HotelBooking" className="bg-gray-600 text-white px-4 py-2 rounded mt-2">
+                    <Link to="/HotelBooking"
+                    state={{ hotelId: item.id, hotel: item }}
+                    key={index}
+                    className="bg-gray-600 text-white px-4 py-2 rounded mt-2">
                           Book Now
                     </Link>
+                    
                   </div>
                 ))}
               </div>
@@ -262,6 +290,7 @@ const Hotel = () => {
       {news.map((item, index) => (
         <Link 
           to="/HotelBooking" 
+          state={{ hotelId: item.id, hotel: item }}
           key={index} 
           className="block transform transition-all duration-300 hover:scale-105 hover:shadow-xl"
         >

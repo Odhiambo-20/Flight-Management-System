@@ -116,7 +116,38 @@ INTENT_CONFIG = {
                 "Terminal congestion is {congestion_level} with {weather_condition} weather conditions."
             ],
             'context_required': ['airport_code']
-        }
+        },
+        'greeting': {
+            'responses': [
+                "Hello! How can I assist you today?",
+                "Hi there! What can I help you with?"
+            ],
+            'context_required': []
+        },
+         'destination_inquiry': {
+            'responses': [
+                "For travel to {destination}, we have flights available from {departure_airports}. Would you like to know specific flight options?",
+                "I can help you find flights to {destination}. Which city would you like to depart from?"
+            ],
+            'context_required': ['destination']
+        },
+        'baggage_inquiry': {
+            'responses': [
+                "For international flights, the standard baggage allowance is {baggage_allowance}.",
+                "The current baggage policy allows {baggage_allowance}. Would you like more specific information?"
+            ],
+            'context_required': []
+        },
+        'goodbye': {
+            'responses': [
+                "Goodbye! Have a safe and pleasant journey.",
+                "Thank you for using our services. Have a great day!",
+                "See you later! If you have more questions, feel free to ask."
+            ],
+            'context_required': []
+        },
+        
+        
     }
 }
 
@@ -240,7 +271,107 @@ class EnhancedFlightAssistant:
                     "Hello! How can I assist you with your travel plans today?",
                     "Hi there! I can help you with flight information, baggage policies, and travel requirements. What would you like to know?"
                 ]
+            },
+
+            "goodbye": {
+            "patterns": [
+                "goodbye",
+                "bye",
+                "see you later",
+                "thanks bye",
+                "thank you goodbye",
+                "that's all",
+                "end",
+                "quit",
+                "bye bye"
+            ],
+            "responses": [
+                "Goodbye! Have a safe and pleasant journey.",
+                "Thank you for using our services. Have a great day!",
+                "See you later! If you have more questions, feel free to ask."
+            ],
+            'booking_inquiry': {
+        'responses': [
+            "I found {num_flights} flights from {origin} to {destination} on {date}. The best option is {airline} flight {flight_number} at {departure_time} for ${price}.",
+            "There are {num_flights} available flights matching your criteria. The most convenient is {airline} {flight_number}, departing {origin} at {departure_time}."
+        ],
+        'context_required': ['origin', 'destination', 'date']
+    },
+    
+    'seat_selection': {
+        'responses': [
+            "For flight {flight_number}, {available_seats} seats are available. {window_seats} window seats and {aisle_seats} aisle seats remain.",
+            "I can help you select a seat on flight {flight_number}. We have {available_seats} seats available in your preferred cabin class."
+        ],
+        'context_required': ['flight_number']
+    },
+    
+    'meal_preference': {
+        'responses': [
+            "The following meal options are available for flight {flight_number}: {meal_options}. Would you like to make a selection?",
+            "On your {flight_number} flight, we offer: {meal_options}. You can select your preference up to 24 hours before departure."
+        ],
+        'context_required': ['flight_number']
+    },
+    
+    'check_in_status': {
+        'responses': [
+            "Online check-in for flight {flight_number} {check_in_status}. {additional_info}",
+            "For flight {flight_number}, check-in {check_in_status}. {additional_info}"
+        ],
+        'context_required': ['flight_number']
+    },
+    
+    'frequent_flyer': {
+        'responses': [
+            "Flight {flight_number} will earn you {miles} miles. Your current balance is {current_miles} miles.",
+            "This journey will add {miles} miles to your account. You need {miles_to_next_tier} more miles for {next_tier} status."
+        ],
+        'context_required': ['flight_number', 'frequent_flyer_number']
+    },
+    
+    'connection_details': {
+        'responses': [
+            "Your connection in {connection_airport} is {connection_duration} minutes. Arrival at Terminal {arrival_terminal}, departure from Terminal {departure_terminal}.",
+            "At {connection_airport}, you'll have {connection_duration} minutes to transfer from Terminal {arrival_terminal} to Terminal {departure_terminal}."
+        ],
+        'context_required': ['flight_number']
+    },
+    
+    'travel_documents': {
+        'responses': [
+            "For travel to {destination}, you need: {required_documents}. Current processing time for visas is {visa_processing_time} days.",
+            "Required documents for {destination}: {required_documents}. Please ensure all documents are valid for at least {validity_requirement} months."
+        ],
+        'context_required': ['destination']
+    },
+    
+    'special_assistance': {
+        'responses': [
+            "I've noted your request for {assistance_type} assistance on flight {flight_number}. Please arrive {arrival_time} before departure.",
+            "Special assistance ({assistance_type}) has been arranged for flight {flight_number}. Check in at the special assistance counter in Terminal {terminal}."
+        ],
+        'context_required': ['flight_number', 'assistance_type']
+    },
+    
+    'flight_amenities': {
+        'responses': [
+            "Flight {flight_number} offers: {amenities}. WiFi is {wifi_status} on this route.",
+            "This aircraft is equipped with: {amenities}. Entertainment system: {entertainment_details}."
+        ],
+        'context_required': ['flight_number']
+    },
+    
+    'pet_travel': {
+        'responses': [
+            "For flight {flight_number}, we can accommodate {pet_type} in the {location}. The fee is ${pet_fee}.",
+            "Pet travel on flight {flight_number}: {pet_policy}. Required documents: {pet_documents}."
+        ],
+        'context_required': ['flight_number', 'pet_type']
+    }
+            
             }
+
         }
         
         self.intent_classifier.train()
@@ -492,7 +623,133 @@ class IntentClassifier:
                 "How busy is {airport_code} airport",
                 "What's the situation at {airport_code}",
                 "Current status of {airport_code} airport"
-            ]
+            ],
+            'greeting': [
+            "hello",
+            "hi",
+            "hey",
+            "good morning",
+            "good afternoon",
+            "good evening",
+            "hi there",
+            "hello there",
+            "greetings"
+        ],
+        'goodbye': [
+            "goodbye",
+            "bye",
+            "see you later",
+            "thanks bye",
+            "thank you goodbye",
+            "that's all",
+            "end",
+            "quit",
+            "bye bye"
+        ],
+        'destination_inquiry': [
+            "how can I get to {destination}",
+            "flights to {destination}",
+            "travel to {destination}",
+            "going to {destination}"
+        ],
+        'baggage_inquiry': [
+            "what's the baggage allowance",
+            "baggage policy",
+            "luggage restrictions",
+            "checked baggage",
+            "carry on limits"
+        ],
+        'booking_inquiry': [
+            "I want to book a flight to {destination}",
+            "Show me flights from {origin} to {destination}",
+            "What flights are available on {date}",
+            "Find flights between {origin} and {destination}",
+            "Book a ticket to {destination}",
+            "Flight options for {date}",
+            "How much is a flight to {destination}"
+        ],
+        'seat_selection': [
+            "Can I choose my seat",
+            "Show available seats for flight {flight_number}",
+            "Is there a window seat available",
+            "Change my seat assignment",
+            "What seats are free on flight {flight_number}",
+            "Select seats for my flight",
+            "Are there any aisle seats left"
+        ],
+        'meal_preference': [
+            "What meal options are available",
+            "Can I request a special meal",
+            "Change my meal choice",
+            "Dietary restrictions for flight {flight_number}",
+            "Is there a vegetarian option",
+            "Food options on the flight",
+            "Request halal meal"
+        ],
+        'check_in_status': [
+            "Can I check in now",
+            "Is online check-in open for {flight_number}",
+            "Start check-in process",
+            "When does check-in open",
+            "Help with check-in",
+            "Check-in time for flight {flight_number}",
+            "Where can I check in"
+        ],
+        'frequent_flyer': [
+            "How many miles will I earn",
+            "Add my frequent flyer number",
+            "Check my miles balance",
+            "Miles for flight {flight_number}",
+            "Update loyalty program",
+            "Points for this trip",
+            "Distance to next tier"
+        ],
+        'connection_details': [
+            "Information about my connection",
+            "How long is my layover",
+            "Connection time in {connection_airport}",
+            "Which terminal is my connecting flight",
+            "Do I have enough time to connect",
+            "Details about transfer",
+            "Terminal change for connection"
+        ],
+        'travel_documents': [
+            "What documents do I need",
+            "Visa requirements for {destination}",
+            "Do I need a passport",
+            "Required documents for travel",
+            "ID requirements for flight",
+            "Travel documents for {destination}",
+            "Passport validity requirements"
+        ],
+        'special_assistance': [
+            "Request wheelchair assistance",
+            "Help for elderly passenger",
+            "Traveling with infant",
+            "Need special assistance",
+            "Arrange wheelchair at airport",
+            "Assistance for disabled passenger",
+            "Unaccompanied minor service"
+        ],
+        'flight_amenities': [
+            "Is there WiFi on board",
+            "What entertainment is available",
+            "In-flight services",
+            "Does the flight have power outlets",
+            "Movies on the flight",
+            "Internet availability",
+            "What's included in business class"
+        ],
+        'pet_travel': [
+            "Can I bring my pet",
+            "Flying with a dog",
+            "Pet in cabin policy",
+            "Cost for pet transport",
+            "Service animal requirements",
+            "Traveling with cats",
+            "Pet carrier dimensions"
+        ]
+        
         }
         
         for intent, intent_patterns in patterns.items():

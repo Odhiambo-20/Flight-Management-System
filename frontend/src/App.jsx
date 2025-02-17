@@ -8,7 +8,6 @@ import Flight from "./pages/Flight";
 import Ask from "./pages/Ask";
 import Hotel from "./pages/Hotel";
 import FlightBooking from "./pages/FlightBooking";
-import ChatButton from "./components/ChatButton";
 import Destinations from "./pages/Destinations";
 import FlightSchedules from "./pages/FlightSchedules";
 import MyBookings from "./pages/MyBookings";
@@ -16,6 +15,7 @@ import Search from "./pages/Search";
 import HotelBooking from "./pages/HotelBooking";
 import Airpay from "./pages/Airpay";
 import CheckIn from "./pages/checkin";
+import ChatWindow from "./components/ChatWindow";
 
 
 function App() {
@@ -39,7 +39,7 @@ function App() {
        <Route path="/payment" element={<Airpay />} />
         <Route path="/checkin" element={<CheckIn />} />
      </Routes>
-     <ChatButton/>
+     <ChatWindow/>
    </BrowserRouter>
  );
 }

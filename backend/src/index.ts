@@ -1,13 +1,15 @@
 import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import { flightController } from './controllers/flightController';
 import paymentController from './controllers/paymentController';
+import { smsController } from './controllers/smsController';
 import cors from 'cors';
 import { config } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { Pool } from 'pg';
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client';
+import axios from 'axios';
 
 
 // Extend Express Request type to include rawBody
@@ -430,6 +432,150 @@ class HotelController {
   };
 }
 
+// SMS Controller
+class SmsController {
+  private username: string;
+  private apiKey: string;
+  private baseUrl: string;
+
+  constructor() {
+    this.username = process.env.AT_USERNAME || '';
+    this.apiKey = process.env.AT_API_KEY || '';
+    this.baseUrl = 'https://api.africastalking.com/version1';
+  }
+
+  /**
+   * Send SMS using Africa's Talking API
+   */
+  public sendSms = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { recipients, message } = req.body;
+
+      // Validate request
+      if (!recipients || !message) {
+        res.status(400).json({
+          success: false,
+          message: 'Recipients and message are required'
+        });
+        return;
+      }
+
+      // Format recipients if it's an array
+      const formattedRecipients = Array.isArray(recipients) 
+        ? recipients.join(',') 
+        : recipients;
+
+      // Prepare request to Africa's Talking API
+      const data = {
+        username: this.username,
+        to: formattedRecipients,
+        message
+      };
+
+      const config = {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'apiKey': this.apiKey,
+          'Accept': 'application/json'
+        }
+      };
+
+      // Send request to Africa's Talking API
+      const response = await axios.post(
+        `${this.baseUrl}/messaging`,
+        new URLSearchParams(data).toString(),
+        config
+      );
+
+      console.log('SMS API Response:', response.data);
+
+      // Return success response
+      res.json({
+        success: true,
+        data: response.data,
+        message: 'SMS sent successfully'
+      });
+    } catch (error) {
+      console.error('SMS sending error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error sending SMS',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  /**
+   * Get SMS delivery status
+   */
+  public getSmsStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { messageId } = req.params;
+
+      if (!messageId) {
+        res.status(400).json({
+          success: false,
+          message: 'Message ID is required'
+        });
+        return;
+      }
+
+      const config = {
+        headers: {
+          'apiKey': this.apiKey,
+          'Accept': 'application/json'
+        },
+        params: {
+          username: this.username,
+          messageId
+        }
+      };
+
+      const response = await axios.get(
+        `${this.baseUrl}/messaging`,
+        config
+      );
+
+      res.json({
+        success: true,
+        data: response.data,
+        message: 'SMS status retrieved successfully'
+      });
+    } catch (error) {
+      console.error('Get SMS status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error getting SMS status',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  /**
+   * Handle delivery reports from Africa's Talking API
+   */
+  public handleDeliveryReport = async (req: Request, res: Response): Promise<void> => {
+    try {
+      console.log('Delivery report received:', req.body);
+      
+      // Process the delivery report as needed
+      // You may want to update the status in your database
+      
+      res.json({
+        success: true,
+        message: 'Delivery report processed successfully'
+      });
+    } catch (error) {
+      console.error('Process delivery report error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error processing delivery report',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+}
+
 // Initialize controllers
 const authController = new AuthController();
 const hotelController = new HotelController();
@@ -484,6 +630,11 @@ router.post('/payments/webhook/:provider', (req, res) => paymentController.handl
 router.post('/payments/mpesa/stkpush', paymentController.StkPush);
 router.post('/payments/mpesa/callback', paymentController.callback);
 
+
+// Add SMS routes
+router.post('/notifications/sms/send', authenticateToken, (req, res) => smsController.sendSms(req, res));
+router.get('/notifications/sms/:messageId/status', authenticateToken, (req, res) => smsController.getSmsStatus(req, res));
+router.post('/notifications/sms/delivery-report', (req, res) => smsController.handleDeliveryReport(req, res));
 
 // Health check endpoints
 router.get('/health', (_req: Request, res: Response) => {
@@ -543,7 +694,7 @@ app.listen(port, () => {
   console.log('- GET  /api/hotels/search');
   console.log('- POST /api/hotels/search');
   console.log('- POST /api/hotels/book');
-  console.log('- GET  /api/hotels/rooms/:roomId/availability');  // New endpoint
+  console.log('- GET  /api/hotels/rooms/:roomId/availability');
   console.log('- GET  /api/flights/search');
   console.log('- GET  /api/flights/:flightId');
   console.log('- POST /api/flights/reserve'); 
@@ -551,8 +702,14 @@ app.listen(port, () => {
   console.log('- POST /api/payments/process');
   console.log('- GET  /api/payments/:transactionId/status');
   console.log('- POST /api/payments/webhook/:provider');
+  console.log('- POST /api/payments/mpesa/stkpush');
+  console.log('- POST /api/payments/mpesa/callback');
+  console.log('- POST /api/notifications/sms/send'); // New SMS route
+  console.log('- GET  /api/notifications/sms/:messageId/status'); // New SMS status route
+  console.log('- POST /api/notifications/sms/delivery-report'); // New delivery report webhook
   console.log('- GET  /api/health');
   console.log('- GET  /api/db-health');
+
 });
 
 export default app;

@@ -1,7 +1,6 @@
-
 import { MessageCircle, Instagram, Facebook, Youtube, Linkedin, Twitter } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import ChatWindow from '../components/ChatWindow';
 import KualaLumpur from '/src/assets/Kuala Lumpur.jpg';
@@ -15,12 +14,14 @@ import Berlin from '/src/assets/Berlin.jpg';
 import London from '/src/assets/London.jpeg';
 import Moscow from '/src/assets/Moscow.jpg';
 import Venice from '/src/assets/Venice.jpg';
-import Toronto from '/src/assets/Toronto.webp'
+import Toronto from '/src/assets/Toronto.webp';
 import GooglePlaystore from '/src/assets/Google Playstore.png';
 import AppStore from '/src/assets/App Store.png';
 import AppGallery from '/src/assets/App Gallery.png';
 
 const Home = () => {
+  const navigate = useNavigate();
+
   const flightRecommendations = [
     { to: 'Kuala Lumpur', price: 'RM 1,971.38', image: KualaLumpur },
     { to: 'Nairobi', from: 'Bangkok', price: 'RM 1,310.83', image: Nairobi },
@@ -34,8 +35,6 @@ const Home = () => {
     { to: 'Moscow', price: 'RM 3,218.84', image: Moscow },
     { to: 'Venice', price: 'RM 3,218.84', image: Venice },
     { to: 'Toronto', price: 'RM 3,218.84', image: Toronto },
-
-
   ];
 
   const features = [
@@ -69,6 +68,45 @@ const Home = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleFlightSelection = (flight) => {
+    // Extract destination from flight string
+    const destination = flight.replace('Flight to ', '');
+    
+    // Find the matching recommendation to get the price if available
+    const recommendation = flightRecommendations.find(rec => rec.to === destination);
+    const price = recommendation ? recommendation.price : 'To be determined';
+
+    // Create a booking template based on the selected flight
+    const newBooking = {
+      id: `BK${Math.floor(Math.random() * 1000)}`,
+      flightNumber: `PA${Math.floor(Math.random() * 1000)}`,
+      from: 'Current Location',
+      to: destination,
+      date: '', // This could be set to a default future date
+      passengers: 1,
+      status: 'Pending',
+      price: price
+    };
+    
+    // Navigate to MyBookings with the selected flight data
+    navigate('/MyBookings', { state: { newBooking } });
+  };
+
+  const handleRecommendationClick = (flight) => {
+    const newBooking = {
+      id: `BK${Math.floor(Math.random() * 1000)}`,
+      flightNumber: `PA${Math.floor(Math.random() * 1000)}`,
+      from: flight.from || 'Current Location',
+      to: flight.to,
+      date: '',
+      passengers: 1,
+      status: 'Pending',
+      price: flight.price
+    };
+    
+    navigate('/MyBookings', { state: { newBooking } });
+  };
+
   // Combine static and cycling images
   const displayedRecommendations = [
     ...staticImages, 
@@ -82,10 +120,10 @@ const Home = () => {
         <h2 className="text-2xl font-semibold mb-6">Exclusive Flight Recommendations</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {displayedRecommendations.map((flight, index) => (
-            <Link 
-              to="/MyBookings" 
+            <div 
               key={index} 
-              className="block transform transition-all duration-300 hover:scale-105 hover:shadow-xl relative overflow-hidden"
+              onClick={() => handleRecommendationClick(flight)}
+              className="block transform transition-all duration-300 hover:scale-105 hover:shadow-xl relative overflow-hidden cursor-pointer"
             >
               <div className="relative rounded-lg overflow-hidden shadow-lg">
                 <img 
@@ -94,21 +132,16 @@ const Home = () => {
                   className="w-full h-48 object-cover transition-transform duration-300 hover:scale-110"
                 />
                 <div className="absolute inset-0 bg-black opacity-0 hover:opacity-20 transition-opacity duration-300"></div>
-                <div 
-                  className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-4 
-                    animate-slide-left"
-                >
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-4 animate-slide-left">
                   <p className="font-medium">Flight to {flight.to}</p>
                   {flight.from && <p className="text-sm">From {flight.from}</p>}
                   <p className="text-lg font-bold mt-1">Start from {flight.price}</p>
                 </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       </section>
-
-
 
       {/* Features */}
       <section className="bg-white py-12">
@@ -146,14 +179,9 @@ const Home = () => {
               </div>
             </div>
             <div className="flex gap-4">
-
-
-    
-            <img src={GooglePlaystore} alt="Google Playstore" className="h-12" />
-            <img src={AppStore} alt="App Store" className="h-12" />
-            <img src={AppGallery} alt="App Gallery" className="h-12" />
-          
-              
+              <img src={GooglePlaystore} alt="Google Playstore" className="h-12" />
+              <img src={AppStore} alt="App Store" className="h-12" />
+              <img src={AppGallery} alt="App Gallery" className="h-12" />
             </div>
           </div>
           <div className="md:w-1/2 flex justify-center">
@@ -167,13 +195,13 @@ const Home = () => {
         <h2 className="text-2xl font-semibold mb-6">Top Popular Flights</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {popularFlights.map((flight, index) => (
-            <Link 
-              key={index} 
-              to="/MyBookings" 
-              className="text-gray-600 hover:text-gray-800 hover:underline transition-colors duration-300"
+            <button
+              key={index}
+              onClick={() => handleFlightSelection(flight)}
+              className="text-left text-gray-600 hover:text-gray-800 hover:underline transition-colors duration-300"
             >
               {flight}
-            </Link>
+            </button>
           ))}
         </div>
       </section>
@@ -226,7 +254,6 @@ const Home = () => {
 
       {/* Chat Button */}
       <ChatWindow />
-      
     </div>
   );
 };

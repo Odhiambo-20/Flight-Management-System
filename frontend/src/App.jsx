@@ -16,6 +16,7 @@ import HotelBooking from "./pages/HotelBooking";
 import Airpay from "./pages/Airpay";
 import CheckIn from "./pages/checkin";
 import ChatWindow from "./components/ChatWindow";
+import AdminDashboard from "./pages/Admin";
 
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
        <Route path="/flightschedules" element={<FlightSchedules />} /> 
        <Route path="/mybookings" element={<MyBookings />} /> 
        <Route path="/hotelbooking" element={<HotelBooking />} />
+        <Route path="/admin" element={<AdminDashboard/>} />
        <Route path="/payment" element={<Airpay />} />
         <Route path="/checkin" element={<CheckIn />} />
      </Routes>

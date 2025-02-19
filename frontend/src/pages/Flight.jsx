@@ -1,53 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Search, User, Calendar, Plane, ChevronDown, Lock, MapPin, Clock, Luggage } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plane } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
-
-const NestedDropdown = ({ items, isActive, onMouseEnter, onMouseLeave }) => {
-  const [activeSubMenu, setActiveSubMenu] = useState(null);
-
-  return (
-    <div 
-      className={`absolute top-full left-0 w-64 bg-white shadow-lg rounded-lg p-4 ${isActive ? 'block' : 'hidden'}`}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
-      {items.map((item, index) => (
-        <div 
-          key={index} 
-          className="relative"
-          onMouseEnter={() => setActiveSubMenu(index)}
-          onMouseLeave={() => setActiveSubMenu(null)}
-        >
-          <div className="flex items-center justify-between p-2 hover:bg-gray-100 rounded">
-            <div className="flex items-center">
-              {item.icon && <item.icon className="mr-2 h-5 w-5 text-gray-600" />}
-              <span>{item.label}</span>
-            </div>
-            {item.dropdownItems && <ChevronDown className="h-4 w-4 text-gray-400" />}
-          </div>
-          
-          {item.dropdownItems && activeSubMenu === index && (
-            <div className="absolute top-0 left-full ml-2 w-64 bg-white shadow-lg rounded-lg p-4">
-              {item.dropdownItems.map((subItem, subIndex) => (
-                <div key={subIndex} className="flex items-center p-2 hover:bg-gray-100 rounded">
-                  {subItem.icon && <subItem.icon className="mr-2 h-5 w-5 text-gray-600" />}
-                  <div>
-                    <div className="font-semibold">{subItem.label}</div>
-                    <div className="text-xs text-gray-500">{subItem.description}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-};
 
 const Flight = () => {
-  const [activeDropdown, setActiveDropdown] = useState(null);
+  const navigate = useNavigate();
   const [flights, setFlights] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -60,141 +17,6 @@ const Flight = () => {
     class: 'Economy'
   });
 
-  const navigationItems = [
-    {
-      label: 'Book',
-      hasDropdown: true,
-      dropdownItems: [
-        { 
-          icon: Plane, 
-          label: 'Flight Booking', 
-          description: 'Search and book flights',
-          dropdownItems: [
-            { icon: Plane, label: 'Domestic Flights', description: 'Book within the country' },
-            { icon: Plane, label: 'International Flights', description: 'Book international travel' }
-          ]
-        },
-        { 
-          icon: MapPin, 
-          label: 'Destinations', 
-          description: 'Explore our routes',
-          dropdownItems: [
-            { icon: MapPin, label: 'Popular Destinations', description: 'Top travel spots' },
-            { icon: MapPin, label: 'New Destinations', description: 'Recently added routes' }
-          ]
-        },
-        { 
-          icon: Clock, 
-          label: 'Flight Schedules', 
-          description: 'View all flight times',
-          dropdownItems: [
-            { icon: Clock, label: 'Upcoming Flights', description: 'Upcoming flight schedules' },
-            { icon: Clock, label: 'Past Flights', description: 'Historical flight information' }
-          ]
-        }
-      ]
-    },
-    {
-      label: 'Manage',
-      hasDropdown: true,
-      dropdownItems: [
-        { 
-          icon: Plane, 
-          label: 'My Bookings', 
-          description: 'View and modify reservations',
-          dropdownItems: [
-            { icon: Plane, label: 'Current Bookings', description: 'Active reservations' },
-            { icon: Plane, label: 'Past Bookings', description: 'Previous travel history' }
-          ]
-        },
-        { 
-          icon: Clock, 
-          label: 'Flight Status', 
-          description: 'Check flight status',
-          dropdownItems: [
-            { icon: Clock, label: 'Departures', description: 'Outgoing flight statuses' },
-            { icon: Clock, label: 'Arrivals', description: 'Incoming flight statuses' }
-          ]
-        },
-        { 
-          icon: Luggage, 
-          label: 'Baggage', 
-          description: 'Track and manage baggage',
-          dropdownItems: [
-            { icon: Luggage, label: 'Baggage Tracking', description: 'Track your luggage' },
-            { icon: Luggage, label: 'Baggage Policies', description: 'Luggage rules and limits' }
-          ]
-        }
-      ]
-    },
-    {
-      label: 'Check-in',
-      hasDropdown: true,
-      dropdownItems: [
-        { 
-          icon: User, 
-          label: 'Online Check-in', 
-          description: 'Check in for your flight',
-          dropdownItems: [
-            { icon: User, label: 'Web Check-in', description: 'Online web check-in' },
-            { icon: User, label: 'Mobile Check-in', description: 'Mobile app check-in' }
-          ]
-        },
-        { 
-          icon: Luggage, 
-          label: 'Baggage Drop', 
-          description: 'Find baggage drop locations',
-          dropdownItems: [
-            { icon: Luggage, label: 'Airport Counters', description: 'Baggage drop points' },
-            { icon: Luggage, label: 'Self-Service', description: 'Automated baggage drop' }
-          ]
-        },
-        { 
-          icon: MapPin, 
-          label: 'Airport Information', 
-          description: 'Terminal maps and info',
-          dropdownItems: [
-            { icon: MapPin, label: 'Terminal Maps', description: 'Airport terminal layouts' },
-            { icon: MapPin, label: 'Services', description: 'Airport amenities' }
-          ]
-        }
-      ]
-    },
-    {
-      label: 'Security',
-      hasDropdown: true,
-      dropdownItems: [
-        { 
-          icon: Lock, 
-          label: 'Security Process', 
-          description: 'Security guidelines',
-          dropdownItems: [
-            { icon: Lock, label: 'Screening Procedures', description: 'Security checkpoint info' },
-            { icon: Lock, label: 'Documentation', description: 'Required travel documents' }
-          ]
-        },
-        { 
-          icon: Luggage, 
-          label: 'Restricted Items', 
-          description: 'What you can carry',
-          dropdownItems: [
-            { icon: Luggage, label: 'Prohibited Items', description: 'Items not allowed' },
-            { icon: Luggage, label: 'Carry-on Rules', description: 'Luggage restrictions' }
-          ]
-        },
-        { 
-          icon: Clock, 
-          label: 'Processing Times', 
-          description: 'Expected wait times',
-          dropdownItems: [
-            { icon: Clock, label: 'Security Wait', description: 'Expected security line times' },
-            { icon: Clock, label: 'Boarding Process', description: 'Boarding timeline' }
-          ]
-        }
-      ]
-    }
-  ];
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setSearchCriteria(prev => ({
@@ -203,26 +25,61 @@ const Flight = () => {
     }));
   };
 
+  const handleBookFlight = (flight) => {
+    const newBooking = {
+      id: `BK${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+      flightNumber: flight.flightNumber,
+      from: flight.from,
+      to: flight.to,
+      date: flight.departureTime.split(' ')[0],
+      departureTime: flight.departureTime,
+      arrivalTime: flight.arrivalTime,
+      passengers: searchCriteria.passengers,
+      status: 'Confirmed',
+      price: `$${flight.price}`,
+      availableSeats: flight.availableSeats,
+      class: searchCriteria.class
+    };
+
+    navigate('/MyBookings', { state: { newBooking } });
+  };
+
   const searchFlights = async (e) => {
     e.preventDefault();
+    
+    // Check if required fields are provided
+    if (!searchCriteria.departure || !searchCriteria.arrival) {
+      setError('Please specify both departure and arrival airports');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
+    setFlights([]);
 
     try {
-      const response = await axios.get('http://localhost:5000/api/flightS/search', {
-        params: {
-          departure: searchCriteria.departure,
-          arrival: searchCriteria.arrival,
-          departureDate: searchCriteria.departureDate,
-          returnDate: searchCriteria.returnDate,
-          passengers: searchCriteria.passengers,
-          class: searchCriteria.class
-        }
+      // Get flights from API
+      const response = await axios.get('http://localhost:5000/api/flights/search', {
+        params: searchCriteria
       });
 
-      setFlights(response.data.data);
+      if (response.data && response.data.data) {
+        // Filter flights to only include those matching the exact departure and arrival airports
+        const filteredFlights = response.data.data.filter(flight => 
+          flight.from.toLowerCase() === searchCriteria.departure.toLowerCase() && 
+          flight.to.toLowerCase() === searchCriteria.arrival.toLowerCase()
+        );
+        
+        if (filteredFlights.length === 0) {
+          setError(`No flights found from ${searchCriteria.departure} to ${searchCriteria.arrival}`);
+        } else {
+          setFlights(filteredFlights);
+        }
+      } else {
+        setError('Failed to fetch flights. Invalid response format.');
+      }
     } catch (err) {
-      setError('Failed to fetch flights. Please try again.');
+      setError(`Failed to fetch flights: ${err.message || 'Unknown error'}`);
       console.error('Search error:', err);
     } finally {
       setLoading(false);
@@ -231,28 +88,11 @@ const Flight = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation with Nested Dropdowns */}
+      {/* Simple Navigation without Dropdowns */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center relative">
-          {navigationItems.map((item, index) => (
-            <div 
-              key={index} 
-              className="relative group"
-              onMouseEnter={() => setActiveDropdown(index)}
-              onMouseLeave={() => setActiveDropdown(null)}
-            >
-              <div className="flex items-center cursor-pointer">
-                <span className="mr-2 text-gray-700 hover:text-gray-900">{item.label}</span>
-                <ChevronDown className="h-4 w-4 text-gray-500" />
-              </div>
-              <NestedDropdown 
-                items={item.dropdownItems} 
-                isActive={activeDropdown === index}
-                onMouseEnter={() => setActiveDropdown(index)}
-                onMouseLeave={() => setActiveDropdown(null)}
-              />
-            </div>
-          ))}
+          <Link to="/" className="font-semibold text-xl text-gray-800">Phoenix Airways</Link>
+          
         </div>
       </nav>
       
@@ -277,6 +117,7 @@ const Flight = () => {
                 onChange={handleInputChange}
                 className="w-full p-2 border rounded"
                 placeholder="Departure airport"
+                required
               />
             </div>
             
@@ -291,6 +132,7 @@ const Flight = () => {
                 onChange={handleInputChange}
                 className="w-full p-2 border rounded"
                 placeholder="Arrival airport"
+                required
               />
             </div>
 
@@ -355,7 +197,7 @@ const Flight = () => {
             <button 
               type="submit" 
               disabled={loading}
-              className="bg-gray-800 hover:bg-gray-800 text-white px-8 py-2 rounded w-full md:w-auto disabled:bg-gray-400"
+              className="bg-red-600 hover:bg-red-700 text-white px-8 py-2 rounded w-full md:w-auto disabled:bg-gray-400"
             >
               {loading ? 'Searching...' : 'Search Flights'}
             </button>
@@ -373,33 +215,94 @@ const Flight = () => {
         {flights.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-2xl font-semibold text-gray-900">Available Flights</h2>
-            {flights.map((flight, index) => (
-              <div key={index} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-semibold text-lg">Flight {flight.id}</h3>
-                    <p className="text-gray-600">{flight.hotel?.name}</p>
+            {flights.map((flight) => (
+              <div key={flight.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+                  <div className="mb-4 md:mb-0">
+                    <h3 className="font-semibold text-lg flex items-center">
+                      <Plane className="w-5 h-5 mr-2 text-red-600" />
+                      Flight {flight.flightNumber}
+                    </h3>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">From:</span> {flight.from}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">To:</span> {flight.to}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Departure:</span> {flight.departureTime}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Arrival:</span> {flight.arrivalTime}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Available Seats:</span> {flight.availableSeats}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
+                  <div className="flex flex-col items-end space-y-3">
                     <p className="text-2xl font-bold text-gray-900">${flight.price}</p>
-
-                    <Link to="/MyBookings" className="bg-gray-600 text-white px-4 py-2 rounded mt-2">
+                    <button
+                      onClick={() => handleBookFlight(flight)}
+                      className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded transition-colors"
+                    >
                       Book Now
-                    </Link>
-                    
+                    </button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         )}
+
+        {/* No Results Message */}
+        {!loading && flights.length === 0 && searchCriteria.departure && searchCriteria.arrival && (
+          <div className="text-center py-8">
+            <p className="text-gray-600 text-lg">No flights found for your search criteria.</p>
+            <p className="text-gray-500 mt-2">Try different dates or destinations.</p>
+          </div>
+        )}
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
+      <footer className="bg-gray-900 text-white py-12 mt-auto">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center">
-            <p>© Phoenix Airways - all rights reserved</p>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+              <h3 className="text-lg font-semibold mb-4">About Us</h3>
+              <p className="text-gray-400">Phoenix Airways - Your trusted partner for comfortable and safe air travel.</p>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+              <ul className="space-y-2">
+                <li><Link to="/flights" className="text-gray-400 hover:text-white">Flights</Link></li>
+                <li><Link to="/bookings" className="text-gray-400 hover:text-white">My Bookings</Link></li>
+                <li><Link to="/check-in" className="text-gray-400 hover:text-white">Check-in</Link></li>
+                <li><Link to="/contact" className="text-gray-400 hover:text-white">Contact Us</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Support</h3>
+              <ul className="space-y-2">
+                <li><Link to="/faq" className="text-gray-400 hover:text-white">FAQ</Link></li>
+                <li><Link to="/baggage" className="text-gray-400 hover:text-white">Baggage Info</Link></li>
+                <li><Link to="/terms" className="text-gray-400 hover:text-white">Terms & Conditions</Link></li>
+                <li><Link to="/privacy" className="text-gray-400 hover:text-white">Privacy Policy</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Contact</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li>1-800-PHOENIX</li>
+                <li>support@phoenix-airways.com</li>
+                <li>123 Aviation Boulevard</li>
+                <li>Phoenix, AZ 85001</li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center">
+            <p className="text-gray-400">© 2025 Phoenix Airways - All rights reserved</p>
           </div>
         </div>
       </footer>

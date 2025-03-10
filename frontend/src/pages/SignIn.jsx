@@ -57,8 +57,14 @@ const SignIn = () => {
 
         // Store the token if your API returns one
         if (data.token) {
-          localStorage.setItem('token', data.token);
+          localStorage.setItem('authToken', data.token);
         }
+
+        setUserDetails({
+          userId: data.userId,
+          firstName: data.firstName,
+          lastName: data.lastName,
+        });
 
         // Store user info in localStorage if needed
         localStorage.setItem('userDetails', JSON.stringify({
@@ -69,7 +75,7 @@ const SignIn = () => {
 
         // Short delay before redirect to show success message
         setTimeout(() => {
-          navigate('/'); // Redirect to home page
+          navigate('/home'); // Redirect to home page
         }, 1000);
       } else {
         console.error('Sign-in failed:', data.message);

@@ -1,150 +1,298 @@
 {
-    "intents": {
-        "greeting": {
-            "patterns": [
-                "hello",
-                "hi",
-                "hey there",
-                "good morning",
-                "good afternoon",
-                "good evening",
-                "hi there",
-                "greetings",
-                "what's up",
-                "howdy"
-            ],
-            "responses": [
-                "Hello! How can I help you with your flight today?",
-                "Hi there! Looking for flight information?",
-                "Welcome! How may I assist you with your travel plans?",
-                "Greetings! What flight information can I help you with?"
-            ]
-        },
-        "flight_status": {
-            "patterns": [
-                "where is flight {flight_number}",
-                "what's the status of {flight_number}",
-                "track flight {flight_number}",
-                "is {flight_number} on schedule",
-                "what's happening with {flight_number}",
-                "can you check flight {flight_number}",
-                "tell me about {flight_number}",
-                "flight tracker for {flight_number}",
-                "location of flight {flight_number}",
-                "current position of {flight_number}"
-            ],
-            "context_required": ["flight_number"],
-            "responses": [
-                "Flight {flight_number} is currently {status}",
-                "Your flight {flight_number} operated by {operator} is {status}",
-                "The current status of flight {flight_number} is {status}"
-            ]
-        },
-        "delay_prediction": {
-            "patterns": [
-                "will {flight_number} be delayed",
-                "is there a delay for {flight_number}",
-                "what's the delay prediction for {flight_number}",
-                "chances of delay for {flight_number}",
-                "how likely is {flight_number} to be delayed",
-                "delay forecast for {flight_number}",
-                "expected delays for {flight_number}",
-                "is {flight_number} running late",
-                "on-time performance of {flight_number}",
-                "arrival prediction for {flight_number}"
-            ],
-            "context_required": ["flight_number"],
-            "responses": [
-                "Based on current conditions, flight {flight_number} has a predicted delay of {delay_minutes} minutes",
-                "The delay prediction for {flight_number} is {delay_minutes} minutes",
-                "We expect flight {flight_number} to be delayed by approximately {delay_minutes} minutes"
-            ]
-        },
-        "gate_information": {
-            "patterns": [
-                "what gate is flight {flight_number}",
-                "which gate for {flight_number}",
-                "gate number for {flight_number}",
-                "where does {flight_number} depart from",
-                "departure gate {flight_number}",
-                "arrival gate for {flight_number}",
-                "what terminal is {flight_number}",
-                "terminal information for {flight_number}"
-            ],
-            "context_required": ["flight_number"],
-            "responses": [
-                "Flight {flight_number} departs from Gate {gate_number} in Terminal {terminal}",
-                "You can find flight {flight_number} at Gate {gate_number}",
-                "The gate assignment for {flight_number} is Gate {gate_number}, Terminal {terminal}"
-            ]
-        },
-        "baggage_info": {
-            "patterns": [
-                "where is my baggage for {flight_number}",
-                "baggage claim for {flight_number}",
-                "luggage status {flight_number}",
-                "track my bags {flight_number}",
-                "which carousel {flight_number}",
-                "baggage delay {flight_number}",
-                "lost baggage {flight_number}"
-            ],
-            "context_required": ["flight_number"],
-            "responses": [
-                "Baggage from flight {flight_number} will arrive at carousel {carousel_number}",
-                "Your bags from {flight_number} can be collected at carousel {carousel_number}",
-                "Baggage claim for flight {flight_number} is at carousel {carousel_number} in terminal {terminal}"
-            ]
-        },
-        "boarding_time": {
-            "patterns": [
-                "when does boarding start for {flight_number}",
-                "boarding time {flight_number}",
-                "when should I board {flight_number}",
-                "what time is boarding for {flight_number}",
-                "boarding call {flight_number}",
-                "when to get to gate {flight_number}"
-            ],
-            "context_required": ["flight_number"],
-            "responses": [
-                "Boarding for flight {flight_number} begins at {boarding_time}",
-                "Please arrive at Gate {gate_number} by {boarding_time} for flight {flight_number}",
-                "Boarding will commence at {boarding_time} for flight {flight_number}"
-            ]
-        },
-        "flight_duration": {
-            "patterns": [
-                "how long is flight {flight_number}",
-                "duration of {flight_number}",
-                "when does {flight_number} land",
-                "arrival time for {flight_number}",
-                "flight length {flight_number}",
-                "travel time {flight_number}"
-            ],
-            "context_required": ["flight_number"],
-            "responses": [
-                "Flight {flight_number} has a duration of {duration} and lands at {arrival_time}",
-                "The journey time for flight {flight_number} is {duration}",
-                "You will arrive at {arrival_time} after a {duration} flight"
-            ]
-        },
-        "goodbye": {
-            "patterns": [
-                "goodbye",
-                "bye",
-                "see you later",
-                "thanks bye",
-                "thank you goodbye",
-                "that's all",
-                "end",
-                "quit",
-                "bye bye"
-            ],
-            "responses": [
-                "Goodbye! Have a safe flight!",
-                "Thank you for using our flight service. Have a great trip!",
-                "Safe travels! Goodbye!",
-                "Thanks for checking in with us. Have a wonderful journey!"
-            ]
-        }
-    }
-}
+    "intents": [
+      {
+        "intent": "Greeting",
+        "examples": [
+          "Hello",
+          "Hi there",
+          "Good morning",
+          "Hey",
+          "I need help with flights"
+        ]
+      },
+      {
+        "intent": "Farewell",
+        "examples": [
+          "Goodbye",
+          "Bye",
+          "Thanks for your help",
+          "That's all I needed"
+        ]
+      },
+      {
+        "intent": "SearchFlights",
+        "examples": [
+          "I want to book a flight",
+          "Find flights from {origin} to {destination}",
+          "Show me flights for {date}",
+          "Are there any flights available next week?",
+          "I need to fly to {destination}"
+        ],
+        "entities": ["origin", "destination", "date", "passengers", "class"]
+      },
+      {
+        "intent": "FilterFlights",
+        "examples": [
+          "Show me the cheapest flights",
+          "I want a direct flight only",
+          "Are there any morning flights?",
+          "Filter for business class",
+          "Show flights with {airline}"
+        ],
+        "entities": ["price_range", "direct_only", "time_of_day", "airline", "duration"]
+      },
+      {
+        "intent": "FlightDetails",
+        "examples": [
+          "Tell me more about this flight",
+          "What's the baggage allowance?",
+          "Does this flight have Wi-Fi?",
+          "How long is the layover?",
+          "What type of aircraft is this?"
+        ],
+        "entities": ["flight_id", "detail_type"]
+      },
+      {
+        "intent": "BookFlight",
+        "examples": [
+          "I'd like to book this flight",
+          "Reserve seats on this flight",
+          "Book the morning flight to {destination}",
+          "I want to confirm this itinerary",
+          "Let's book flight {flight_id}"
+        ],
+        "entities": ["flight_id", "passenger_count", "seat_preference"]
+      },
+      {
+        "intent": "PassengerInformation",
+        "examples": [
+          "Add passenger details",
+          "Enter traveler information",
+          "My name is {name}",
+          "The passenger is {age} years old",
+          "I need to add passport details"
+        ],
+        "entities": ["name", "age", "gender", "passport_number", "nationality", "dob"]
+      },
+      {
+        "intent": "SeatSelection",
+        "examples": [
+          "I want to choose my seat",
+          "Show me the seat map",
+          "Is there a window seat available?",
+          "I prefer an aisle seat",
+          "Can I get a seat with extra legroom?"
+        ],
+        "entities": ["seat_type", "seat_location", "flight_id"]
+      },
+      {
+        "intent": "AddServices",
+        "examples": [
+          "Add extra baggage",
+          "I want to pre-order a meal",
+          "Add priority boarding",
+          "Do you offer travel insurance?",
+          "I need special assistance"
+        ],
+        "entities": ["service_type", "quantity", "flight_id"]
+      },
+      {
+        "intent": "PaymentMethod",
+        "examples": [
+          "How can I pay?",
+          "I want to pay with credit card",
+          "Do you accept PayPal?",
+          "Can I pay in installments?",
+          "I'd like to use my saved payment method"
+        ],
+        "entities": ["payment_type", "currency"]
+      },
+      {
+        "intent": "ProcessPayment",
+        "examples": [
+          "Process my payment",
+          "Charge my card",
+          "Complete the booking",
+          "Here's my card information",
+          "Finalize the purchase"
+        ],
+        "entities": ["payment_details", "amount", "booking_id"]
+      },
+      {
+        "intent": "PaymentIssue",
+        "examples": [
+          "My payment was declined",
+          "There's a problem with my credit card",
+          "Payment failed",
+          "I'm getting an error during checkout",
+          "Why was my card charged twice?"
+        ],
+        "entities": ["error_message", "payment_id"]
+      },
+      {
+        "intent": "BookingConfirmation",
+        "examples": [
+          "Did my booking go through?",
+          "I need my booking confirmation",
+          "Send me my itinerary",
+          "Can I get a receipt?",
+          "I didn't receive a confirmation email"
+        ],
+        "entities": ["booking_id", "email"]
+      },
+      {
+        "intent": "FlightStatus",
+        "examples": [
+          "What's the status of my flight?",
+          "Is my flight on time?",
+          "Has flight {flight_number} been delayed?",
+          "Check if there are any changes to my flight",
+          "When will flight {flight_number} depart?"
+        ],
+        "entities": ["flight_number", "date", "booking_id"]
+      },
+      {
+        "intent": "CheckIn",
+        "examples": [
+          "I want to check in for my flight",
+          "How do I get my boarding pass?",
+          "Online check-in",
+          "Can I check in now?",
+          "Check in for booking {booking_id}"
+        ],
+        "entities": ["booking_id", "flight_id", "passenger_name"]
+      },
+      {
+        "intent": "SearchHotels",
+        "examples": [
+          "Find hotels in {location}",
+          "I need accommodation in {location}",
+          "Show hotels near the airport",
+          "Are there any hotels available in {location}?",
+          "Book a hotel room"
+        ],
+        "entities": ["location", "check_in_date", "check_out_date", "guests", "room_count"]
+      },
+      {
+        "intent": "FilterHotels",
+        "examples": [
+          "Show me 5-star hotels only",
+          "I need a hotel with free breakfast",
+          "Hotels with swimming pool",
+          "Find pet-friendly hotels",
+          "Hotels under $200 per night"
+        ],
+        "entities": ["star_rating", "amenities", "price_range", "review_score"]
+      },
+      {
+        "intent": "HotelDetails",
+        "examples": [
+          "Tell me more about this hotel",
+          "What amenities does the hotel have?",
+          "How far is the hotel from downtown?",
+          "Does the hotel offer airport shuttle?",
+          "Show me pictures of the rooms"
+        ],
+        "entities": ["hotel_id", "detail_type"]
+      },
+      {
+        "intent": "BookHotel",
+        "examples": [
+          "I'd like to book this hotel",
+          "Reserve a room at this hotel",
+          "Book the superior room",
+          "Make a hotel reservation",
+          "Complete my hotel booking"
+        ],
+        "entities": ["hotel_id", "room_type", "stay_duration"]
+      },
+      {
+        "intent": "CancelFlight",
+        "examples": [
+          "I need to cancel my flight",
+          "Cancel my booking",
+          "What's your cancellation policy?",
+          "How do I get a refund for my flight?",
+          "Cancel booking {booking_id}"
+        ],
+        "entities": ["booking_id", "reason", "passenger_name"]
+      },
+      {
+        "intent": "ModifyBooking",
+        "examples": [
+          "Change my flight date",
+          "I want to reschedule my flight",
+          "Can I change the passenger name?",
+          "Modify my itinerary",
+          "I need to add another passenger to my booking"
+        ],
+        "entities": ["booking_id", "modification_type", "new_value"]
+      },
+      {
+        "intent": "CancelHotel",
+        "examples": [
+          "Cancel my hotel reservation",
+          "I need to cancel my room booking",
+          "What's the hotel cancellation policy?",
+          "Can I get a refund for my hotel?",
+          "Cancel hotel booking {booking_id}"
+        ],
+        "entities": ["booking_id", "hotel_id", "reason"]
+      },
+      {
+        "intent": "RefundStatus",
+        "examples": [
+          "Where is my refund?",
+          "Check refund status",
+          "How long will the refund take?",
+          "I haven't received my money back yet",
+          "Track my refund for booking {booking_id}"
+        ],
+        "entities": ["booking_id", "refund_id", "payment_method"]
+      },
+      {
+        "intent": "LoyaltyProgram",
+        "examples": [
+          "Tell me about your loyalty program",
+          "How do I earn miles?",
+          "I want to use my points for a booking",
+          "What's my frequent flyer status?",
+          "How many points do I have?"
+        ],
+        "entities": ["loyalty_id", "point_type"]
+      },
+      {
+        "intent": "TravelDocuments",
+        "examples": [
+          "What documents do I need for travel?",
+          "Do I need a visa?",
+          "Passport requirements for {destination}",
+          "COVID-19 travel restrictions",
+          "Health documents required"
+        ],
+        "entities": ["destination", "nationality", "document_type"]
+      },
+      {
+        "intent": "ContactSupport",
+        "examples": [
+          "I need to speak to customer service",
+          "Connect me with an agent",
+          "Is there a support phone number?",
+          "How can I reach customer support?",
+          "I have a complaint"
+        ],
+        "entities": ["issue_type", "urgency"]
+      },
+      {
+        "intent": "GetFAQ",
+        "examples": [
+          "What's your baggage policy?",
+          "How early should I arrive at the airport?",
+          "Can I bring my pet on the flight?",
+          "Frequently asked questions",
+          "Do you serve special meals?"
+        ],
+        "entities": ["faq_category", "specific_question"]
+      }
+    ]
+  }

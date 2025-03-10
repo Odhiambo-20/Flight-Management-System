@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Search, ChevronDown, ListOrdered, Globe, Minus, Plus, ArrowRightLeft } from 'lucide-react';
+import { Search, ChevronDown, Minus, Plus, ArrowRightLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import logo from '/src/assets/Air_Phoenix_logo.jpg';
 
-const AirpazComplete = () => {
+const Header = () => {
   const navigate = useNavigate();
 
   // State management for dropdowns
@@ -57,22 +57,35 @@ const AirpazComplete = () => {
   };
 
   const handleSearch = () => {
+    // Validate required fields
     if (!fromLocation || !toLocation || !departureDate) {
       alert('Please fill in all required fields');
       return;
     }
 
-    const searchParams = {
+    // Format dates to specific string format
+    const formatDate = (date) => {
+      if (!date) return '';
+      const d = new Date(date);
+      return d.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+    };
+
+    // Prepare search parameters
+    const searchParams = new URLSearchParams({
       tripType,
       fromLocation,
       toLocation,
-      departureDate,
-      returnDate: tripType === 'Round Trip' ? returnDate : null,
-      passengers,
+      departureDate: formatDate(departureDate),
+      returnDate: tripType === 'Round Trip' ? formatDate(returnDate) : '',
+      passengerCount: (passengers.adult + passengers.child + passengers.infant).toString(),
+      adultsCount: passengers.adult.toString(),
+      childrenCount: passengers.child.toString(),
+      infantsCount: passengers.infant.toString(),
       cabinClass
-    };
+    });
 
-    console.log('Search Parameters:', searchParams);
+    // Navigate to booking page with search parameters
+    navigate(`/mybookings?${searchParams.toString()}`);
   };
 
   return (
@@ -82,11 +95,11 @@ const AirpazComplete = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-8">
-              <Link to="/">
+              <Link to="/home">
                 <img src={logo} alt="Logo" className="w-36" />
               </Link>
               <div className="hidden md:flex space-x-6">
-                {['Home', 'Flight', 'Hotel', 'Promo', 'Orders'].map(item => (
+                {['Home', 'Flight', 'Hotel', 'Promo'].map(item => (
                   <span 
                     key={item} 
                     onClick={() => handleNavigation(`/${item.toLowerCase()}`)} 
@@ -98,11 +111,7 @@ const AirpazComplete = () => {
               </div>
             </div>
             <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2">
-                <Globe className="h-4 w-4" />
-                <span>MYR</span>
-              </div>
-              {['Ask', 'Sign in', 'Download App'].map(item => (
+              {['Ask', 'Sign in', 'Admin'].map(item => (
                 <span 
                   key={item} 
                   onClick={() => handleNavigation(`/${item.toLowerCase().replace(' ', '')}`)} 
@@ -315,4 +324,4 @@ const AirpazComplete = () => {
   );
 };
 
-export default AirpazComplete;
+export default Header;

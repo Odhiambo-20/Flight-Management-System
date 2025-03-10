@@ -1,12 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Plane, Calendar, Users, CreditCard, Eye, Edit, X } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import axios from 'axios';
 
 const MyBookings = () => {
+  const navigate = useNavigate();
   const location = useLocation();
   const [bookings, setBookings] = useState([]);
+  const [searchDetails, setSearchDetails] = useState({
+    tripType: '',
+    fromLocation: '',
+    toLocation: '',
+    departureDate: '',
+    returnDate: '',
+    passengerCount: '',
+    adultsCount: '',
+    childrenCount: '',
+    infantsCount: '',
+    cabinClass: ''
+  });
   const [formData, setFormData] = useState({
     from: '',
     to: '',
@@ -18,6 +31,49 @@ const MyBookings = () => {
   });
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({ type: '', message: '' });
+
+  // Generate a unique flight number
+  const generateFlightNumber = () => {
+    // Airline code (e.g., PA for PanAir)
+    const airlineCode = 'PA';
+    
+    // Generate a random 3-digit number
+    const randomNumber = Math.floor(100 + Math.random() * 900);
+    
+    return `${airlineCode}${randomNumber}`;
+  };
+
+  // Parse search parameters on component mount
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    
+    const parsedSearchDetails = {
+      tripType: searchParams.get('tripType') || '',
+      fromLocation: searchParams.get('fromLocation') || '',
+      toLocation: searchParams.get('toLocation') || '',
+      departureDate: searchParams.get('departureDate') || '',
+      returnDate: searchParams.get('returnDate') || '',
+      passengerCount: searchParams.get('passengerCount') || '',
+      adultsCount: searchParams.get('adultsCount') || '',
+      childrenCount: searchParams.get('childrenCount') || '',
+      infantsCount: searchParams.get('infantsCount') || '',
+      cabinClass: searchParams.get('cabinClass') || ''
+    };
+
+    // Populate form with search details if available
+    if (parsedSearchDetails.fromLocation) {
+      setFormData(prev => ({
+        ...prev,
+        from: parsedSearchDetails.fromLocation,
+        to: parsedSearchDetails.toLocation,
+        date: parsedSearchDetails.departureDate,
+        passengers: parseInt(parsedSearchDetails.passengerCount) || 1,
+        flightNumber: generateFlightNumber() // Automatically generate flight number
+      }));
+    }
+
+    setSearchDetails(parsedSearchDetails);
+  }, [location.search]);
 
   useEffect(() => {
     if (location.state?.newBooking) {
@@ -37,16 +93,29 @@ const MyBookings = () => {
 
   const sendSMSUsingAfricasTalking = async (phoneNumber, message) => {
     try {
-      // Make API call to your backend endpoint that handles Africa's Talking integration
-      const response = await axios.post('/api/send-sms', {
-        phoneNumber: phoneNumber,
-        message: message
-      });
+      // Retrieve the authentication token from local storage
+      const token = localStorage.getItem('authToken');
 
+       // Check if token exists
+       if (!token) {
+        throw new Error('Authentication token not found. Please log in again.');
+      }
+  
+      // Make API call with the token in the Authorization header
+      const response = await axios.post('http://localhost:5000/api/notifications/sms/send', {
+        recipients: phoneNumber,  // Note: changed from phoneNumber to recipients
+        message: message
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,  // Add the Bearer token
+          'Content-Type': 'application/json'
+        }
+      });
+  
       if (response.status !== 200) {
         throw new Error('Failed to send SMS');
       }
-
+  
       return response.data;
     } catch (error) {
       console.error('SMS sending failed:', error);
@@ -102,7 +171,7 @@ const MyBookings = () => {
         passengers: 1,
         phoneNumber: '',
         email: '',
-        flightNumber: '',
+        flightNumber: generateFlightNumber(), // Generate a new flight number
       });
 
     } catch (error) {
@@ -149,6 +218,50 @@ const MyBookings = () => {
     <main className="max-w-7xl mx-auto px-4 py-8">
       <h1 className="text-4xl font-bold text-gray-900 mb-8">Flight Booking System</h1>
 
+      {/* Search Details Display */}
+      {searchDetails.fromLocation && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+          <h2 className="text-xl font-semibold mb-2">Search Details</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-600">Trip Type</p>
+              <p className="font-medium">{searchDetails.tripType}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">From</p>
+              <p className="font-medium">{searchDetails.fromLocation}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">To</p>
+              <p className="font-medium">{searchDetails.toLocation}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Departure Date</p>
+              <p className="font-medium">{searchDetails.departureDate}</p>
+            </div>
+            {searchDetails.tripType === 'Round Trip' && (
+              <div>
+                <p className="text-sm text-gray-600">Return Date</p>
+                <p className="font-medium">{searchDetails.returnDate}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-sm text-gray-600">Passengers</p>
+              <p className="font-medium">
+                Total: {searchDetails.passengerCount} 
+                (Adults: {searchDetails.adultsCount}, 
+                Children: {searchDetails.childrenCount}, 
+                Infants: {searchDetails.infantsCount})
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Cabin Class</p>
+              <p className="font-medium">{searchDetails.cabinClass}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Notification Alert */}
       {notification.message && (
         <Alert className={`mb-6 ${notification.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
@@ -164,6 +277,34 @@ const MyBookings = () => {
           <h2 className="text-2xl font-semibold mb-6">Book a New Flight</h2>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  From
+                </label>
+                <input
+                  type="text"
+                  name="from"
+                  required
+                  value={formData.from}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded-lg"
+                  placeholder="Enter departure location"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  To
+                </label>
+                <input
+                  type="text"
+                  name="to"
+                  required
+                  value={formData.to}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded-lg"
+                  placeholder="Enter destination"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Phone Number
@@ -203,7 +344,8 @@ const MyBookings = () => {
                   value={formData.flightNumber}
                   onChange={handleInputChange}
                   className="w-full p-2 border rounded-lg"
-                  placeholder="e.g. PA123"
+                  placeholder="Auto-generated flight number"
+                  readOnly
                 />
               </div>
             </div>
@@ -267,7 +409,7 @@ const MyBookings = () => {
                   <p className="font-medium flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     {booking.date ? new Date(booking.date).toLocaleDateString() : 'N/A'}
-                  </p>
+                    </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Passengers</p>
@@ -278,6 +420,7 @@ const MyBookings = () => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Price</p>
+                  
                   <p className="font-medium flex items-center gap-2">
                     <CreditCard className="w-4 h-4" />
                     {booking.price}
@@ -309,3 +452,4 @@ const MyBookings = () => {
 };
 
 export default MyBookings;
+                 

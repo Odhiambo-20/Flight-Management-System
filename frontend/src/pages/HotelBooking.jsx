@@ -12,6 +12,7 @@ const HotelBooking = () => {
   const [hotelData, setHotelData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dateError, setDateError] = useState(null);
   
   // Booking form state
   const [formData, setFormData] = useState({
@@ -44,7 +45,8 @@ const HotelBooking = () => {
         setHotelData({
           id: 'r3s4t5u6-v7w8',
           name: 'Luxury Suite',
-          image: '/images/luxury-room.jpg',
+          image: '/assets/luxury-room5.jpg',
+          videoUrl: '/assets/luxury-room-tour.mp4', // Added video URL
           price: 299,
           description: 'Experience ultimate luxury in our spacious suite featuring premium amenities, stunning views, and personalized service.',
           amenities: ['Free WiFi', 'Room Service', 'King Size Bed', 'Jacuzzi', 'Ocean View']
@@ -56,46 +58,70 @@ const HotelBooking = () => {
 
   const fetchHotelDetails = async (roomId) => {
     try {
-      // Validate UUID format
-      if (!/^[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}$/.test(roomId)) {
-        throw new Error('Invalid room ID format');
+      // Ensure roomId is a positive integer
+      const parsedRoomId = parseInt(roomId, 10);
+      
+      if (isNaN(parsedRoomId) || parsedRoomId <= 0) {
+        throw new Error('Invalid room ID: must be a positive integer');
       }
-
-      const response = await axios.get(`${API_URL}/hotels/rooms/${roomId}`);
-      if (response.data.success) {
-        setHotelData(response.data.data);
+  
+      // Remove the trailing slash from API_URL and ensure clean URL construction
+      const response = await axios.get(`${API_URL.replace(/\/+$/, '')}/hotels/search`, {
+        params: { roomId: parsedRoomId }  // Pass roomId as a query parameter
+      });
+  
+      if (response.data.success && response.data.data.length > 0) {
+        setHotelData(response.data.data[0]);
       } else {
-        setError('Failed to fetch hotel details');
+        setError('No hotel details found for the given room');
       }
     } catch (err) {
       console.error('Error fetching hotel details:', err);
-      setError(err.response?.data?.message || 'An error occurred while fetching hotel details');
+      setError(err.response?.data?.message || err.message || 'An error occurred while fetching hotel details');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Improved validation function with more robust error handling
   const validateRoomAvailability = async (roomId, checkIn, checkOut) => {
     try {
-      const response = await axios.get(`${API_URL}/hotels/rooms/${roomId}/availability`, {
+      // Format dates consistently for the API
+      const formattedCheckIn = new Date(checkIn).toISOString().split('T')[0];
+      const formattedCheckOut = new Date(checkOut).toISOString().split('T')[0];
+      
+      const response = await axios.get(`${API_URL.replace(/\/+$/, '')}/hotels/rooms/${roomId}/availability`, {
         params: {
-          checkIn,
-          checkOut
+          checkIn: formattedCheckIn,
+          checkOut: formattedCheckOut
         }
       });
-      return response.data.available;
+      
+      // Directly check the SQL results we saw: if date_specific_availability is "Available"
+      return response.data.available || response.data.date_specific_availability === 'Available';
     } catch (err) {
       console.error('Error checking room availability:', err);
-      throw new Error('Failed to validate room availability');
+      // More specific error handling
+      if (err.response?.status === 404) {
+        throw new Error('Room not found');
+      } else if (err.response?.status === 400) {
+        throw new Error(err.response.data.message || 'Invalid date selection');
+      } else {
+        throw new Error('Failed to validate room availability. Please try again later.');
+      }
     }
   };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prevState => ({
       ...prevState,
       [name]: value
     }));
+    
+    // Clear date-related errors when dates change
+    if (name === 'checkIn' || name === 'checkOut') {
+      setDateError(null);
+    }
   };
 
   const calculateTotalPrice = () => {
@@ -103,13 +129,49 @@ const HotelBooking = () => {
     
     const checkIn = new Date(formData.checkIn);
     const checkOut = new Date(formData.checkOut);
-    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    const nights = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)));
     
     return hotelData.price * nights;
   };
 
+  // Function to validate dates before submission
+  const validateDates = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const checkIn = new Date(formData.checkIn);
+    const checkOut = new Date(formData.checkOut);
+    
+    if (checkIn < today) {
+      setDateError("Check-in date cannot be in the past");
+      return false;
+    }
+    
+    if (checkOut <= checkIn) {
+      setDateError("Check-out date must be after check-in date");
+      return false;
+    }
+    
+    // Limit booking to 30 days
+    const daysDifference = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    if (daysDifference > 30) {
+      setDateError("Maximum booking duration is 30 days");
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
+    setDateError(null);
+    
+    // Validate dates before proceeding
+    if (!validateDates()) {
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -121,16 +183,20 @@ const HotelBooking = () => {
       );
 
       if (!isAvailable) {
-        setError('This room is not available for the selected dates');
+        setDateError('This room is not available for the selected dates');
         setIsLoading(false);
         return;
       }
+
+      // UPDATED HERE: Convert userId to a number (or default to 1 if not available)
+      const userIdFromStorage = localStorage.getItem('userId');
+      const userId = userIdFromStorage ? parseInt(userIdFromStorage, 10) : 1;
 
       const bookingData = {
         roomId: hotelData.id,
         checkIn: formData.checkIn,
         checkOut: formData.checkOut,
-        userId: localStorage.getItem('userId') || 'guest-user',
+        userId: userId, // Now using an integer instead of string
         totalPrice: calculateTotalPrice(),
         customerDetails: {
           firstName: formData.firstName,
@@ -146,7 +212,7 @@ const HotelBooking = () => {
         paymentMethod: formData.paymentMethod
       };
       
-      const response = await axios.post(`${API_URL}/hotels/book`, bookingData);
+      const response = await axios.post(`${API_URL.replace(/\/+$/, '')}/hotels/book`, bookingData);
       
       if (response.data.success) {
         navigate('/booking-confirmation', { 
@@ -164,7 +230,11 @@ const HotelBooking = () => {
       }
     } catch (err) {
       console.error('Booking error:', err);
-      setError(err.response?.data?.message || 'An error occurred while processing your booking');
+      if (err.message.includes('available')) {
+        setDateError(err.message);
+      } else {
+        setError(err.response?.data?.message || err.message || 'An error occurred while processing your booking');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -216,15 +286,26 @@ const HotelBooking = () => {
           </ol>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Hotel Details */}
-          <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Hotel Details */}
+            <div className="lg:col-span-2">
             <div className="bg-white rounded-lg overflow-hidden shadow-lg">
-              <img 
-                src={hotelData.image} 
-                alt={hotelData.name} 
-                className="w-full h-80 object-cover"
-              />
+              {/* Video or Image Rendering */}
+              {hotelData.videoUrl ? (
+                <video 
+                  src={hotelData.videoUrl} 
+                  alt={hotelData.name} 
+                  className="w-full h-80 object-cover"
+                  controls
+                  poster={hotelData.image}
+                />
+              ) : (
+                <img 
+                  src={hotelData.image} 
+                  alt={hotelData.name} 
+                  className="w-full h-80 object-cover"
+                />
+              )}
               
               <div className="p-6">
                 <h1 className="text-3xl font-bold mb-2">{hotelData.name}</h1>
@@ -240,18 +321,29 @@ const HotelBooking = () => {
                 <div className="border-t pt-6">
                   <h3 className="text-xl font-semibold mb-4">Amenities</h3>
                   <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
-                    {hotelData.amenities.map((amenity, index) => (
+                    {hotelData?.amenities?.map((amenity, index) => (
                       <li key={index} className="flex items-center">
                         <Check className="w-5 h-5 text-green-500 mr-2" />
                         <span>{amenity}</span>
                       </li>
-                    ))}
+                    )) || (
+                      <>
+                        <p className='col-span-2 text-gray-600 mb-4'>
+                          Perfect for romantic getaways, our honeymoon suite offers intimate spaces and luxury amenities.
+                        </p>
+                        {['Free WiFi', 'Room Service', 'Queen Size Bed', 'Bathtub', 'Garden View', 'Breakfast Included'].map((amenity, index) => (
+                          <li key={index} className="flex items-center">
+                            <Check className="w-5 h-5 text-green-500 mr-2" />
+                            <span>{amenity}</span>
+                          </li>
+                        ))}
+                      </>
+                    )}
                   </ul>
                 </div>
               </div>
             </div>
           </div>
-
           {/* Booking Form */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-lg p-6">
@@ -342,6 +434,13 @@ const HotelBooking = () => {
                   </div>
                 </div>
                 
+                {/* Date error message */}
+                {dateError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-red-600 text-sm">{dateError}</p>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Adults</label>
@@ -423,7 +522,7 @@ const HotelBooking = () => {
                         Number of nights
                       </span>
                       <span className="font-medium">
-                        {Math.ceil((new Date(formData.checkOut) - new Date(formData.checkIn)) / (1000 * 60 * 60 * 24))}
+                        {Math.max(1, Math.ceil((new Date(formData.checkOut) - new Date(formData.checkIn)) / (1000 * 60 * 60 * 24)))}
                       </span>
                     </div>
                   )}
@@ -462,5 +561,3 @@ const HotelBooking = () => {
 };
 
 export default HotelBooking;
-
-

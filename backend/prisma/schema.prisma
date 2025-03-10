@@ -27,7 +27,7 @@ enum PaymentProvider {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            Int       @id @default(autoincrement())
   email         String    @unique
   password      String
   firstName     String
@@ -43,7 +43,7 @@ model User {
 }
 
 model Flight {
-  id            String    @id @default(uuid())
+  id            Int       @id @default(autoincrement())
   flightNumber  String    @unique
   from          String
   to            String
@@ -52,21 +52,22 @@ model Flight {
   availableSeats Int
   price         Float
   reservations  FlightReservation[]
+  reviews       Review[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
 
 model FlightReservation {
-  id            String    @id @default(uuid())
-  userId        String
-  flightId      String
-  seatNumber    String
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  flightId      Int
+  seatNumber    Int
   status        String    // PENDING, CONFIRMED, CANCELLED
   paymentStatus String?   @default("PENDING") // PENDING, PAID, REFUNDED
   user          User      @relation(fields: [userId], references: [id])
   flight        Flight    @relation(fields: [flightId], references: [id])
   payment       Payment?  @relation(fields: [paymentId], references: [id])
-  paymentId     String?
+  paymentId     Int?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -75,18 +76,19 @@ model FlightReservation {
 }
 
 model Hotel {
-  id          String    @id @default(uuid())
+  id          Int       @id @default(autoincrement())
   name        String
   location    String
   rooms       HotelRoom[]
+  reviews     Review[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
 
 model HotelRoom {
-  id          String    @id @default(uuid())
-  hotelId     String
-  roomNumber  String
+  id          Int       @id @default(autoincrement())
+  hotelId     Int
+  roomNumber  Int
   type        String
   price       Float
   available   Boolean   @default(true)
@@ -99,9 +101,9 @@ model HotelRoom {
 }
 
 model HotelBooking {
-  id            String    @id @default(uuid())
-  userId        String
-  roomId        String
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  roomId        Int
   checkIn       DateTime
   checkOut      DateTime
   status        String    // PENDING, CONFIRMED, CANCELLED
@@ -109,7 +111,7 @@ model HotelBooking {
   user          User      @relation(fields: [userId], references: [id])
   room          HotelRoom @relation(fields: [roomId], references: [id])
   payment       Payment?  @relation(fields: [paymentId], references: [id])
-  paymentId     String?
+  paymentId     Int?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -117,22 +119,22 @@ model HotelBooking {
 }
 
 model Payment {
-  id              String          @id @default(cuid())
-  transactionId   String          @unique
+  id              Int            @id @default(autoincrement())
+  transactionId   String         @unique
   amount          Float
   currency        String
-  status          PaymentStatus   @default(PENDING)
+  status          PaymentStatus  @default(PENDING)
   type            PaymentType
   provider        PaymentProvider
-  referenceId     String          // References either FlightReservation or HotelBooking
-  userId          String
-  user            User            @relation(fields: [userId], references: [id])
+  referenceId     String         // References either FlightReservation or HotelBooking
+  userId          Int
+  user            User           @relation(fields: [userId], references: [id])
   flightBookings  FlightReservation[]
   hotelBookings   HotelBooking[]
-  metadata        Json?           // Stores provider-specific details
+  metadata        Json?          // Stores provider-specific details
   description     String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   completedAt     DateTime?
   refundedAt      DateTime?
   refundId        String?
@@ -142,4 +144,17 @@ model Payment {
   @@index([transactionId])
   @@index([referenceId])
   @@index([status])
+}
+
+model Review {
+  id              Int            @id @default(autoincrement())
+  hotelId         Int        
+  flightId        Int?
+  rating          Int
+  comment         String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  flight          Flight?      @relation(fields: [flightId], references: [id])
+  hotel           Hotel?       @relation(fields: [hotelId], references: [id])
 }

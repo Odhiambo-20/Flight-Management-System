@@ -1,0 +1,218 @@
+2025-03-09 07:10:55,983 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-09 07:10:56,015 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-09 07:10:56,121 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-09 07:10:56,155 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-09 07:10:56,156 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-09 07:10:56,158 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-09 07:10:56,256 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-09 07:10:56,263 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-09 07:10:56,274 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-09 07:10:56,276 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-09 07:10:56,340 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-09 07:10:56,343 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-09 07:10:56,344 - __main__ - ERROR - Invalid intents format: <class 'dict'>. Using fallback intents.
+2025-03-09 07:10:56,344 - __main__ - INFO - Intent Manager initialized with 2 intents
+2025-03-09 07:10:56,344 - __main__ - INFO - Flight Assistant initialized
+2025-03-09 07:10:56,351 - __main__ - INFO - Starting server on port 5000
+2025-03-09 07:36:56,574 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-09 07:36:56,665 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-09 07:36:56,669 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-09 07:36:56,675 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-09 07:36:56,677 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-09 07:36:56,678 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-09 07:36:56,771 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-09 07:36:56,776 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-09 07:36:56,781 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-09 07:36:56,781 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-09 07:36:56,783 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-09 07:36:56,784 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-09 07:36:56,784 - __main__ - ERROR - Invalid intents format: <class 'dict'>. Using fallback intents.
+2025-03-09 07:36:56,788 - __main__ - INFO - Intent Manager initialized with 2 intents
+2025-03-09 07:36:56,789 - __main__ - INFO - Flight Assistant initialized
+2025-03-09 07:36:56,793 - __main__ - INFO - Starting server on port 5000
+2025-03-10 04:42:41,342 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 04:42:41,386 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 04:42:41,389 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 04:42:41,394 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 04:42:41,394 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 04:42:41,395 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 04:42:41,502 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 04:42:41,508 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 04:42:41,532 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 04:42:41,533 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 04:42:41,534 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 04:42:41,535 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 04:42:41,535 - __main__ - ERROR - Invalid intents format: <class 'dict'>. Using fallback intents.
+2025-03-10 04:42:41,535 - __main__ - INFO - Intent Manager initialized with 2 intents
+2025-03-10 04:42:41,535 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 04:42:41,542 - __main__ - INFO - Starting server on port 5000
+2025-03-10 05:42:33,481 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 05:42:33,572 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 05:42:33,578 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 05:42:33,591 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 05:42:33,593 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 05:42:33,594 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 05:42:33,685 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 05:42:33,689 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 05:42:33,692 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 05:42:33,693 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 05:42:33,694 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 05:42:33,697 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 05:42:33,697 - __main__ - ERROR - Invalid intents format: <class 'dict'>. Using fallback intents.
+2025-03-10 05:42:33,697 - __main__ - INFO - Intent Manager initialized with 2 intents
+2025-03-10 05:42:33,698 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 05:42:33,704 - __main__ - INFO - Starting server on port 5000
+2025-03-10 06:05:59,866 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:05:59,936 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:05:59,939 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:05:59,943 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:05:59,944 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:05:59,945 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:06:00,004 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:06:00,006 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:06:00,014 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:06:00,021 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:06:00,046 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 06:06:00,052 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 06:06:00,052 - __main__ - ERROR - Invalid intents format: <class 'dict'>. Using fallback intents.
+2025-03-10 06:06:00,053 - __main__ - INFO - Intent Manager initialized with 2 intents
+2025-03-10 06:06:00,053 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 06:06:00,057 - __main__ - INFO - Starting server on port 5000
+2025-03-10 06:17:23,317 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:17:23,382 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:17:23,384 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:17:23,387 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:17:23,389 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:17:23,398 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:17:23,510 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:17:23,514 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:17:23,518 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:17:23,519 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:21:01,021 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:21:01,060 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:21:01,090 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:21:01,096 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:21:01,097 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:21:01,097 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:21:01,165 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:21:01,172 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:21:01,211 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:21:01,213 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:21:01,213 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 06:21:01,221 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 06:21:01,221 - __main__ - INFO - Converting list-format intents to dictionary format
+2025-03-10 06:21:01,223 - __main__ - INFO - Intent Manager initialized with 27 intents
+2025-03-10 06:21:01,224 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 06:21:01,240 - __main__ - INFO - Starting server on port 5000
+2025-03-10 06:37:12,797 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:37:12,884 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:37:12,889 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:37:12,902 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:37:12,905 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:37:12,906 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:37:13,080 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:37:13,087 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:37:13,093 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:37:13,094 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:37:13,097 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 06:37:13,098 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 06:37:13,099 - __main__ - INFO - Converting list-format intents to dictionary format
+2025-03-10 06:37:13,099 - __main__ - INFO - Intent Manager initialized with 27 intents
+2025-03-10 06:37:13,102 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 06:37:13,157 - __main__ - INFO - Starting server on port 5000
+2025-03-10 06:43:37,968 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:43:38,025 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:43:38,027 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:43:38,031 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:43:38,032 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:43:38,033 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:43:38,089 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:43:38,120 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:43:38,125 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:43:38,126 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:43:38,128 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 06:43:38,135 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 06:43:38,136 - __main__ - INFO - Converting list-format intents to dictionary format
+2025-03-10 06:43:38,136 - __main__ - INFO - Intent Manager initialized with 27 intents
+2025-03-10 06:43:38,136 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 06:43:38,165 - __main__ - INFO - Starting server on port 5000
+2025-03-10 06:51:51,097 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:51:51,151 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:51:51,154 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:51:51,159 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:51:51,159 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:51:51,161 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 06:51:51,235 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 06:51:51,246 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 06:51:51,251 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 06:51:51,251 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 06:51:51,253 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 06:51:51,255 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 06:51:51,255 - __main__ - INFO - Converting list-format intents to dictionary format
+2025-03-10 06:51:51,255 - __main__ - INFO - Intent Manager initialized with 27 intents
+2025-03-10 06:51:51,255 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 06:51:51,259 - __main__ - INFO - Starting server on port 5000
+2025-03-10 07:22:40,749 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 07:22:40,815 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 07:22:40,818 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 07:22:40,824 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 07:22:40,825 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 07:22:40,826 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 07:22:40,880 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 07:22:40,884 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 07:22:40,888 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 07:22:40,888 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 07:22:40,889 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 07:22:40,890 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 07:22:40,890 - __main__ - INFO - Converting list-format intents to dictionary format
+2025-03-10 07:22:40,890 - __main__ - INFO - Intent Manager initialized with 27 intents
+2025-03-10 07:22:40,890 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 07:22:40,894 - __main__ - INFO - Starting server on port 5000
+2025-03-10 07:31:35,906 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 07:31:35,968 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 07:31:35,970 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 07:31:35,976 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 07:31:35,977 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 07:31:35,978 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 07:31:36,063 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 07:31:36,081 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 07:31:36,087 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 07:31:36,088 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 07:31:36,090 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 07:31:36,091 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 07:31:36,091 - __main__ - INFO - Converting list-format intents to dictionary format
+2025-03-10 07:31:36,092 - __main__ - INFO - Intent Manager initialized with 27 intents
+2025-03-10 07:31:36,092 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 07:31:36,095 - __main__ - INFO - Starting server on port 5000
+2025-03-10 07:39:14,718 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 07:39:14,776 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 07:39:14,778 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 07:39:14,783 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 07:39:14,783 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 07:39:14,784 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 07:39:14,915 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 07:39:14,926 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 07:39:14,940 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 07:39:14,941 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 07:39:14,941 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 07:39:14,944 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 07:39:14,944 - __main__ - INFO - Converting list-format intents to dictionary format
+2025-03-10 07:39:14,944 - __main__ - INFO - Intent Manager initialized with 27 intents
+2025-03-10 07:39:14,945 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 07:39:14,951 - __main__ - INFO - Starting server on port 5000
+2025-03-10 08:22:59,027 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 08:22:59,105 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 08:22:59,108 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 08:22:59,114 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 08:22:59,117 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 08:22:59,117 - __main__ - INFO - Loading airport data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airport_data.json
+2025-03-10 08:22:59,419 - __main__ - WARNING - Airport data is a list, converting to dictionary
+2025-03-10 08:22:59,423 - __main__ - INFO - Loading airline data from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\airline_data.json
+2025-03-10 08:22:59,426 - __main__ - WARNING - Airline data is a list, converting to dictionary
+2025-03-10 08:22:59,426 - __main__ - INFO - FlightDataConnector initialized. Mock mode: True
+2025-03-10 08:22:59,429 - __main__ - INFO - Loading intents from C:\Users\odhis\Desktop\flight management system\frontend\public\Chatbot\intents.json
+2025-03-10 08:22:59,431 - __main__ - INFO - Loaded intents data type: <class 'dict'>
+2025-03-10 08:22:59,431 - __main__ - INFO - Converting list-format intents to dictionary format
+2025-03-10 08:22:59,431 - __main__ - INFO - Intent Manager initialized with 27 intents
+2025-03-10 08:22:59,431 - __main__ - INFO - Flight Assistant initialized
+2025-03-10 08:22:59,444 - __main__ - INFO - Starting server on port 5000

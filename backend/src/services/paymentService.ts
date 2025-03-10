@@ -137,7 +137,7 @@ export class PaymentService {
           provider: 'STRIPE',
           user: {
             connect: {
-              id: paymentDetails.userId
+              id: Number(paymentDetails.userId)
             }
           },
           metadata: {
@@ -178,7 +178,7 @@ export class PaymentService {
           provider: 'MPESA',
           user: {
             connect: {
-              id: paymentDetails.userId
+              id: Number(paymentDetails.userId)
             }
           },
           metadata: {
@@ -218,7 +218,7 @@ export class PaymentService {
           provider: 'PAYPAL',
           user: {
             connect: {
-              id: paymentDetails.userId
+              id: Number(paymentDetails.userId)
             }
           },
           metadata: {
@@ -266,7 +266,7 @@ export class PaymentService {
           provider: 'STRIPE',
           user: {
             connect: {
-              id: paymentDetails.userId
+              id: Number(paymentDetails.userId)
             }
           },
           metadata: {
@@ -433,20 +433,27 @@ export class PaymentService {
   }
 
   private async _updateBookingStatus(transactionId: string): Promise<void> {
-    const payment = await prisma.payment.findUnique({
-      where: { transactionId }
-    });
+    try {
+      const payment = await prisma.payment.findUnique({
+        where: { transactionId }
+      });
 
-    if (payment?.type === 'FLIGHT') {
-      await prisma.flightReservation.update({
-        where: { id: payment.referenceId },
-        data: { status: 'CONFIRMED' }
-      });
-    } else if (payment?.type === 'HOTEL') {
-      await prisma.hotelBooking.update({
-        where: { id: payment.referenceId },
-        data: { status: 'CONFIRMED' }
-      });
+      if (!payment) return;
+
+      if (payment.type === 'FLIGHT') {
+        await prisma.flightReservation.update({
+          where: { id: Number(payment.referenceId) },
+          data: { status: 'CONFIRMED' }
+        });
+      } else if (payment.type === 'HOTEL') {
+        await prisma.hotelBooking.update({
+          where: { id: Number(payment.referenceId) },
+          data: { status: 'CONFIRMED' }
+        });
+      }
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      throw error;
     }
   }
 }

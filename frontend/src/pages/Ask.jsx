@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Search, ChevronRight, Calendar, CreditCard, Plane, Hotel, Gift, Package, User, AlertCircle, HelpCircle } from 'lucide-react';
 
 const Ask = () => {
@@ -235,6 +235,47 @@ const Ask = () => {
           </div>
         </div>
       </main>
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12 mt-auto">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+              <h3 className="text-lg font-semibold mb-4">About Us</h3>
+              <p className="text-gray-400">Phoenix Airways - Your trusted partner for comfortable and safe air travel.</p>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+              <ul className="space-y-2">
+                <li><Link to="/flights" className="text-gray-400 hover:text-white">Flights</Link></li>
+                <li><Link to="/bookings" className="text-gray-400 hover:text-white">My Bookings</Link></li>
+                <li><Link to="/check-in" className="text-gray-400 hover:text-white">Check-in</Link></li>
+                <li><Link to="/contact" className="text-gray-400 hover:text-white">Contact Us</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Support</h3>
+              <ul className="space-y-2">
+                <li><Link to="/faq" className="text-gray-400 hover:text-white">FAQ</Link></li>
+                <li><Link to="/baggage" className="text-gray-400 hover:text-white">Baggage Info</Link></li>
+                <li><Link to="/terms" className="text-gray-400 hover:text-white">Terms & Conditions</Link></li>
+                <li><Link to="/privacy" className="text-gray-400 hover:text-white">Privacy Policy</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Contact</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li>1-800-PHOENIX</li>
+                <li>support@phoenix-airways.com</li>
+                <li>123 Aviation Boulevard</li>
+                <li>Phoenix, AZ 85001</li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center">
+            <p className="text-gray-400">© 2025 Phoenix Airways - All rights reserved</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

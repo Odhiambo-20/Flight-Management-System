@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { PaymentService } from '../services/paymentService';
 import axios from 'axios';
-
+import { v4 as uuidv4 } from 'uuid'; // Add this import for generating unique IDs
 
 // Initialize Prisma client at the top level
 const prisma = new PrismaClient();
@@ -16,17 +16,10 @@ interface CreditCardDetails {
   cardType?: string;
 }
 
-interface CreditCardDetails {
-  number: string;
-  expMonth: number;  // Changed to number to match service
-  expYear: number;   // Changed to number to match service
-  cvc: string;
-  cardholderName: string;
-  cardType?: string;
-}
 interface MPesaDetails {
   phoneNumber: string;
 }
+
 // Update to match service PaymentInitiationRequest
 interface PaymentInitiationRequest {
   amount: number;
@@ -36,6 +29,7 @@ interface PaymentInitiationRequest {
   referenceId: string;
   description?: string;
 }
+
 // Update webhook interfaces to match service requirements
 interface StripeWebhookPayload {
   body: string;
@@ -43,8 +37,10 @@ interface StripeWebhookPayload {
     'stripe-signature': string;
   };
 }
+
 class PaymentController {
   private paymentService: PaymentService;
+  
   constructor() {
     this.paymentService = new PaymentService(
       process.env.STRIPE_SECRET_KEY!,
@@ -53,17 +49,21 @@ class PaymentController {
       process.env.NODE_ENV === 'production'
     );
   }
+  
   private validateCreditCard(card: CreditCardDetails): { isValid: boolean; error?: string } {
     // Basic credit card validation
     if (!card.number || !card.expMonth || !card.expYear || !card.cvc || !card.cardholderName) {
       return { isValid: false, error: 'All card details are required' };
     }
+    
     // Remove spaces and dashes from card number
     const cleanNumber = card.number.replace(/[\s-]/g, '');
+    
     // Check if it's a valid card number length (most cards are 16 digits)
     if (!/^\d{15,16}$/.test(cleanNumber)) {
       return { isValid: false, error: 'Invalid card number' };
     }
+    
     // Luhn algorithm check
     let sum = 0;
     let isEven = false;
@@ -79,26 +79,33 @@ class PaymentController {
       sum += digit;
       isEven = !isEven;
     }
+    
     if (sum % 10 !== 0) {
       return { isValid: false, error: 'Invalid card number' };
     }
+    
     // Validate expiry date
     const currentYear = new Date().getFullYear() % 100;
     const currentMonth = new Date().getMonth() + 1;
     const expMonth = card.expMonth;
     const expYear = card.expYear;
+    
     if (expMonth < 1 || expMonth > 12) {
       return { isValid: false, error: 'Invalid expiry month' };
     }
+    
     if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
       return { isValid: false, error: 'Card has expired' };
     }
+    
     // Validate CVC
     if (!/^\d{3,4}$/.test(card.cvc)) {
       return { isValid: false, error: 'Invalid CVC' };
     }
+    
     return { isValid: true };
   }
+  
   private detectCardType(cardNumber: string): string {
     const clean = cardNumber.replace(/[\s-]/g, '');
     
@@ -107,6 +114,7 @@ class PaymentController {
     
     return 'unknown';
   }
+  
   async processPayment(req: Request, res: Response) {
     try {
       const { 
@@ -121,18 +129,25 @@ class PaymentController {
         customerId, // This will be used as userId
         description
       } = req.body;
+      
       if (!type || !['FLIGHT', 'HOTEL'].includes(type)) {
         return res.status(400).json({ 
           error: 'Invalid payment type. Must be either FLIGHT or HOTEL' 
         });
       }
+      
       if (!amount || !currency || !paymentMethod || !referenceId || !type || !customerId) {
         return res.status(400).json({ 
           error: 'Missing required payment information' 
         });
       }
+      
+      // Generate a unique transaction ID
+      const transactionId = uuidv4();
+      
       const payment = await prisma.payment.create({
         data: {
+          transactionId, // Add the required field
           amount,
           currency,
           type: type as 'FLIGHT' | 'HOTEL',
@@ -146,15 +161,18 @@ class PaymentController {
           }
         }
       });
+      
       const paymentRequest: PaymentInitiationRequest = {
         amount,
         currency,
         type: type as 'FLIGHT' | 'HOTEL',
-        userId: customerId,  // Map customerId to userId
-        referenceId: payment.id,
+        userId: String(customerId), // Ensure it's a string
+        referenceId: String(payment.id), // Convert to string
         description
       };
+      
       let result;
+      
       switch (paymentMethod) {
         case 'CREDIT_CARD':
           if (!cardDetails) {
@@ -162,18 +180,21 @@ class PaymentController {
               error: 'Card details required for credit card payments' 
             });
           }
+          
           const validation = this.validateCreditCard(cardDetails);
           if (!validation.isValid) {
             return res.status(400).json({ 
               error: validation.error 
             });
           }
+          
           const cardType = this.detectCardType(cardDetails.number);
           if (cardType === 'unknown') {
             return res.status(400).json({ 
               error: 'Unsupported card type. We accept Visa and Mastercard.' 
             });
           }
+          
           // Convert string month/year to numbers for the service
           const serviceCardDetails = {
             ...cardDetails,
@@ -181,38 +202,46 @@ class PaymentController {
             expYear: parseInt(cardDetails.expYear.toString()),
             cardType
           };
+          
           result = await this.paymentService.processCreditCardPayment(
             paymentRequest,
             serviceCardDetails
           );
           break;
+          
         case 'MPESA':
           if (!phoneNumber) {
             return res.status(400).json({ 
               error: 'Phone number required for M-Pesa payments' 
             });
           }
+          
           result = await this.paymentService.initiateMPesaPayment(
             paymentRequest,
             { phoneNumber }
           );
           break;
+          
         case 'STRIPE':
           result = await this.paymentService.initiateStripePayment(paymentRequest);
           break;
+          
         case 'PAYPAL':
           if (!email) {
             return res.status(400).json({ 
               error: 'Email required for PayPal payments' 
             });
           }
+          
           result = await this.paymentService.initiatePayPalPayment(paymentRequest);
           break;
+          
         default:
           return res.status(400).json({ 
             error: 'Unsupported payment method' 
           });
       }
+      
       if (result.transactionId) {
         await prisma.payment.update({
           where: { id: payment.id },
@@ -222,6 +251,7 @@ class PaymentController {
           }
         });
       }
+      
       res.json(result);
     } catch (error) {
       console.error('Payment processing failed:', error);
@@ -231,6 +261,7 @@ class PaymentController {
       });
     }
   }
+  
   async handleWebhook(req: Request, res: Response) {
     try {
       const paymentMethod = req.params.provider?.toUpperCase();
@@ -239,6 +270,7 @@ class PaymentController {
         case 'MPESA':
           await this.paymentService.handleMPesaWebhook(req.body);
           break;
+          
         case 'STRIPE':
           // Format webhook payload to match StripeWebhookPayload interface
           const stripeWebhookPayload: StripeWebhookPayload = {
@@ -247,16 +279,20 @@ class PaymentController {
               'stripe-signature': req.headers['stripe-signature'] as string
             }
           };
+          
           await this.paymentService.handleStripeWebhook(stripeWebhookPayload);
           break;
+          
         case 'PAYPAL':
           await this.paymentService.handlePayPalWebhook(req.body);
           break;
+          
         default:
           return res.status(400).json({ 
             error: 'Invalid payment provider' 
           });
       }
+      
       res.json({ success: true });
     } catch (error) {
       console.error('Webhook processing failed:', error);
@@ -266,17 +302,21 @@ class PaymentController {
       });
     }
   }
+  
   async getPaymentStatus(req: Request, res: Response) {
     try {
       const { transactionId } = req.params;
+      
       const payment = await prisma.payment.findUnique({
         where: { transactionId }
       });
+      
       if (!payment) {
         return res.status(404).json({ 
           error: 'Payment not found' 
         });
       }
+      
       res.json({
         status: payment.status,
         amount: payment.amount,
@@ -290,6 +330,7 @@ class PaymentController {
       });
     }
   }
+  
   private async generateMpesaToken(): Promise<string> {
     const consumerKey = process.env.MPESA_CONSUMER_KEY;
     const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
@@ -297,6 +338,7 @@ class PaymentController {
     if (!consumerKey || !consumerSecret) {
       throw new Error('M-Pesa credentials not configured');
     }
+    
     const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
     
     try {
@@ -315,15 +357,18 @@ class PaymentController {
       throw new Error('Failed to generate M-Pesa access token');
     }
   }
+  
   public async StkPush(req: Request, res: Response) {
     try {
-      const { phoneNumber, amount } = req.body;
-      if (!phoneNumber || !amount) {
+      const { phoneNumber, amount, userId } = req.body;
+      
+      if (!phoneNumber || !amount || !userId) {
         return res.status(400).json({
           success: false,
-          message: 'Phone number and amount are required'
+          message: 'Phone number, amount, and userId are required'
         });
       }
+      
       const token = await this.generateMpesaToken();
       const date = new Date();
       const timestamp =
@@ -333,13 +378,17 @@ class PaymentController {
         ("0" + date.getHours()).slice(-2) +
         ("0" + date.getMinutes()).slice(-2) +
         ("0" + date.getSeconds()).slice(-2);
+        
       const shortCode = process.env.MPESA_SHORTCODE;
       const passkey = process.env.MPESA_PASSKEY;
+      
       if (!shortCode || !passkey) {
         throw new Error('M-Pesa configuration missing');
       }
+      
       const stk_password = Buffer.from(shortCode + passkey + timestamp).toString('base64');
       const url = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
+      
       const requestBody = {
         BusinessShortCode: shortCode,
         Password: stk_password,
@@ -353,6 +402,7 @@ class PaymentController {
         AccountReference: "account",
         TransactionDesc: "Payment"
       };
+      
       const response = await axios.post(url, requestBody, {
         headers: {
           'Authorization': 'Bearer ' + token,
@@ -362,29 +412,29 @@ class PaymentController {
 
       // Generate a unique reference ID
       const referenceId = `MPESA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      // Create payment record
+      
+      // Create payment record with required transactionId
       const payment = await prisma.payment.create({
         data: {
+          transactionId: response.data.CheckoutRequestID, // Use CheckoutRequestID as the transaction ID
           amount: parseFloat(amount),
           currency: 'KES',
           type: 'HOTEL', // or could be passed in request
           provider: 'MPESA',
           status: 'PENDING',
-          referenceId, // Add required referenceId
-          transactionId: response.data.CheckoutRequestID,
+          referenceId, // Add required referenceId (as string)
           metadata: {
             phoneNumber,
             MerchantRequestID: response.data.MerchantRequestID
           },
           user: {
             connect: {
-              id: req.body.userId // Make sure to pass userId in the request
+              id: userId // Make sure to pass userId in the request
             }
-
+          }
         }
-      }
       });
+      
       res.json({
         success: true,
         data: {
@@ -400,6 +450,7 @@ class PaymentController {
       });
     }
   }
+  
   // Add the callback method
   public async callback(req: Request, res: Response) {
     try {
@@ -414,7 +465,7 @@ class PaymentController {
 
       const { ResultCode, ResultDesc, CallbackMetadata } = Body.stkCallback;
       
-      // Find the payment using MerchantRequestID
+      // Find the payment using CheckoutRequestID as transactionId
       const payment = await prisma.payment.findFirst({
         where: {
           transactionId: Body.stkCallback.CheckoutRequestID
@@ -429,14 +480,14 @@ class PaymentController {
       }
 
       // Create new metadata object instead of spreading
-    const newMetadata = {
-      ...(payment.metadata as Record<string, unknown>), // Type assertion
-      mpesaResult: {
-        ResultCode,
-        ResultDesc,
-        CallbackMetadata
-      }
-    };
+      const newMetadata = {
+        ...(payment.metadata as Record<string, unknown>), // Type assertion
+        mpesaResult: {
+          ResultCode,
+          ResultDesc,
+          CallbackMetadata
+        }
+      };
 
       // Update payment status based on result code
       await prisma.payment.update({

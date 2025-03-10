@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import { flightController } from './controllers/flightController';
 import paymentController from './controllers/paymentController';
-import { smsController } from './controllers/smsController';
+import bookingController from './controllers/bookingController';
 import cors from 'cors';
 import { config } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
@@ -10,7 +10,10 @@ import bcrypt from 'bcrypt';
 import { Pool } from 'pg';
 import { Prisma } from '@prisma/client';
 import axios from 'axios';
-
+import { spawn } from 'child_process';
+import path from 'path';
+import http from 'http';
+import WebSocket from 'ws';
 
 // Extend Express Request type to include rawBody
 interface ExtendedRequest extends Request {
@@ -19,6 +22,7 @@ interface ExtendedRequest extends Request {
 
 config();
 
+// Initialize Prisma and PostgreSQL pool
 const prisma = new PrismaClient();
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -26,6 +30,28 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: parseInt(process.env.DB_PORT || '5432'),
+});
+
+// Start Python chatbot backend
+const pythonScriptPath = path.join(
+  __dirname,
+  '../../frontend/public/Chatbot/backend.py'
+);
+
+console.log(`Starting Python process from: ${pythonScriptPath}`);
+
+const pythonProcess = spawn('python', [pythonScriptPath]);
+
+pythonProcess.stdout.on('data', (data) => {
+  console.log(`Python stdout: ${data}`);
+});
+
+pythonProcess.stderr.on('data', (data) => {
+  console.error(`Python stderr: ${data}`);
+});
+
+pythonProcess.on('close', (code) => {
+  console.log(`Python process exited with code ${code}`);
 });
 
 // Interfaces
@@ -37,6 +63,18 @@ interface HotelSearchCriteria {
   maxPrice?: number;
   roomType?: string;
 }
+
+// Helper function to validate date string format
+const isValidDate = (dateString: string): boolean => {
+  const regex = /^\d{4}-\d{2}-\d{2}$|^\d{4}\/\d{2}\/\d{2}$/; // Match YYYY-MM-DD or YYYY/MM/DD
+  if (!regex.test(dateString)) return false;
+  
+  // Parse the date
+  const date = new Date(dateString);
+  
+  // Check if the date is valid
+  return !isNaN(date.getTime());
+};
 
 // Auth middleware
 const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
@@ -66,12 +104,11 @@ class AuthController {
         confirmPassword,
         firstName,
         lastName,
-        phoneNumber,    // Now required
-        dateOfBirth,    // Now required
-        nationality     // Now required
+        phoneNumber,
+        dateOfBirth,
+        nationality
       } = req.body;
   
-      // Validate that all required fields are present
       if (!phoneNumber || !dateOfBirth || !nationality) {
         res.status(400).json({ 
           message: 'Phone number, date of birth, and nationality are required' 
@@ -177,31 +214,27 @@ class AuthController {
 class HotelController {
   public search: RequestHandler = async (_req: Request, res: Response): Promise<void> => {
     try {
-      console.log('Performing basic search');
-      
       const hotels = await prisma.hotelRoom.findMany({
         include: {
           hotel: true,
-          bookings: true
+          bookings: true,
         },
         where: {
-          available: true
-        }
+          available: true,
+        },
       });
-
-      console.log('Found hotels:', hotels.length);
 
       res.json({
         success: true,
         data: hotels,
-        message: "Hotels retrieved successfully"
+        message: 'Hotels retrieved successfully',
       });
     } catch (error) {
       console.error('Basic search error:', error);
       res.status(500).json({
         success: false,
         message: 'Error searching hotels',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   };
@@ -210,22 +243,32 @@ class HotelController {
     try {
       console.log('Search criteria received:', req.query);
       
-      const {
-        checkIn,
-        checkOut,
-        adults,
-        children,
-        maxPrice,
-        roomType
-      } = req.query as HotelSearchCriteria;
-
+      const { checkIn, checkOut, adults, children, maxPrice, roomType } = req.query as HotelSearchCriteria;
+  
+      // Validate date parameters
+      if (checkIn && !isValidDate(checkIn)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid check-in date format',
+        });
+        return;
+      }
+  
+      if (checkOut && !isValidDate(checkOut)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid check-out date format',
+        });
+        return;
+      }
+  
       const where: any = {
-        available: true
+        available: true,
       };
 
       if (maxPrice) {
         where.price = {
-          lte: parseFloat(maxPrice.toString())
+          lte: parseFloat(maxPrice.toString()),
         };
       }
 
@@ -239,20 +282,18 @@ class HotelController {
             AND: [
               {
                 checkOut: {
-                  gt: new Date(checkIn)
-                }
+                  gt: new Date(checkIn),
+                },
               },
               {
                 checkIn: {
-                  lt: new Date(checkOut)
-                }
-              }
-            ]
-          }
+                  lt: new Date(checkOut),
+                },
+              },
+            ],
+          },
         };
       }
-
-      console.log('Constructed where clause:', JSON.stringify(where, null, 2));
 
       const availableRooms = await prisma.hotelRoom.findMany({
         where,
@@ -263,83 +304,79 @@ class HotelController {
               AND: [
                 {
                   checkOut: {
-                    gt: checkIn ? new Date(checkIn) : undefined
-                  }
+                    gt: checkIn ? new Date(checkIn) : undefined,
+                  },
                 },
                 {
                   checkIn: {
-                    lt: checkOut ? new Date(checkOut) : undefined
-                  }
-                }
-              ]
-            }
-          }
+                    lt: checkOut ? new Date(checkOut) : undefined,
+                  },
+                },
+              ],
+            },
+          },
         },
         orderBy: {
-          price: 'asc'
-        }
+          price: 'asc',
+        },
       });
-
-      console.log('Search results:', availableRooms.length);
 
       res.json({
         success: true,
         data: availableRooms,
-        message: "Available rooms retrieved successfully",
+        message: 'Available rooms retrieved successfully',
         searchCriteria: {
           checkIn,
           checkOut,
           adults,
           children,
           maxPrice,
-          roomType
-        }
+          roomType,
+        },
       });
     } catch (error) {
       console.error('Search with criteria error:', error);
       res.status(500).json({
         success: false,
         message: 'Error searching hotels',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
+    
   };
 
   public bookRoom: RequestHandler = async (req: Request, res: Response): Promise<void> => {
     try {
-      console.log('Booking request received:', req.body);
-      
       const { userId, roomId, checkIn, checkOut } = req.body;
+
+      const checkInDate = new Date(checkIn).toISOString().split('T')[0];
+      const checkOutDate = new Date(checkOut).toISOString().split('T')[0];
 
       const isRoomAvailable = await prisma.hotelRoom.findFirst({
         where: {
-          id: String(roomId),
+          id: parseInt(roomId),
           available: true,
           bookings: {
             none: {
-              AND: [
-                {
-                  checkOut: {
-                    gt: new Date(checkIn)
-                  }
-                },
+              OR: [
                 {
                   checkIn: {
-                    lt: new Date(checkOut)
-                  }
-                }
-              ]
-            }
-          }
-        }
+                    lt: new Date(checkOutDate),
+                  },
+                  checkOut: {
+                    gt: new Date(checkInDate),
+                  },
+                },
+              ],
+            },
+          },
+        },
       });
-
-      console.log('Room availability check:', isRoomAvailable ? 'Available' : 'Not available');
 
       if (!isRoomAvailable) {
         res.status(400).json({
           success: false,
-          message: 'Room is not available for the selected dates'
+          message: 'Room is not available for the selected dates',
         });
         return;
       }
@@ -348,85 +385,79 @@ class HotelController {
         data: {
           userId,
           roomId,
-          checkIn: new Date(checkIn),
-          checkOut: new Date(checkOut),
+          checkIn: new Date(checkInDate),
+          checkOut: new Date(checkOutDate),
           status: 'CONFIRMED',
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
-
-      console.log('Booking created:', booking);
 
       res.json({
         success: true,
         data: booking,
-        message: "Room booked successfully"
+        message: 'Room booked successfully',
       });
     } catch (error) {
       console.error('Booking error:', error);
       res.status(500).json({
         success: false,
         message: 'Error booking room',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   };
 
-  // New method to check room availability
   public checkRoomAvailability: RequestHandler = async (req: Request, res: Response): Promise<void> => {
     try {
       const { roomId } = req.params;
       const { checkIn, checkOut } = req.query;
-      
+
       if (!checkIn || !checkOut || typeof checkIn !== 'string' || typeof checkOut !== 'string') {
         res.status(400).json({
           success: false,
-          message: 'Check-in and check-out dates are required'
+          message: 'Check-in and check-out dates are required',
         });
         return;
       }
 
-      console.log(`Checking availability for room ${roomId} between ${checkIn} and ${checkOut}`);
-      
+      const checkInDate = new Date(checkIn).toISOString().split('T')[0];
+      const checkOutDate = new Date(checkOut).toISOString().split('T')[0];
+
       const isRoomAvailable = await prisma.hotelRoom.findFirst({
         where: {
-          id: String(roomId),
+          id: parseInt(roomId),
           available: true,
           bookings: {
             none: {
-              AND: [
-                {
-                  checkOut: {
-                    gt: new Date(checkIn)
-                  }
-                },
+              OR: [
                 {
                   checkIn: {
-                    lt: new Date(checkOut)
-                  }
-                }
-              ]
-            }
-          }
-        }
+                    lt: new Date(checkOutDate),
+                  },
+                  checkOut: {
+                    gt: new Date(checkInDate),
+                  },
+                },
+              ],
+            },
+          },
+        },
       });
 
-      console.log('Room availability check result:', isRoomAvailable ? 'Available' : 'Not available');
-      
       res.json({
         success: true,
         available: !!isRoomAvailable,
-        message: isRoomAvailable 
-          ? "Room is available for the selected dates" 
-          : "Room is not available for the selected dates"
+        message: isRoomAvailable
+          ? 'Room is available for the selected dates'
+          : 'Room is not available for the selected dates',
       });
     } catch (error) {
       console.error('Room availability check error:', error);
       res.status(500).json({
         success: false,
         message: 'Error checking room availability',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   };
@@ -444,14 +475,10 @@ class SmsController {
     this.baseUrl = 'https://api.africastalking.com/version1';
   }
 
-  /**
-   * Send SMS using Africa's Talking API
-   */
   public sendSms = async (req: Request, res: Response): Promise<void> => {
     try {
       const { recipients, message } = req.body;
 
-      // Validate request
       if (!recipients || !message) {
         res.status(400).json({
           success: false,
@@ -460,12 +487,10 @@ class SmsController {
         return;
       }
 
-      // Format recipients if it's an array
       const formattedRecipients = Array.isArray(recipients) 
         ? recipients.join(',') 
         : recipients;
 
-      // Prepare request to Africa's Talking API
       const data = {
         username: this.username,
         to: formattedRecipients,
@@ -480,16 +505,12 @@ class SmsController {
         }
       };
 
-      // Send request to Africa's Talking API
       const response = await axios.post(
         `${this.baseUrl}/messaging`,
         new URLSearchParams(data).toString(),
         config
       );
 
-      console.log('SMS API Response:', response.data);
-
-      // Return success response
       res.json({
         success: true,
         data: response.data,
@@ -505,9 +526,6 @@ class SmsController {
     }
   };
 
-  /**
-   * Get SMS delivery status
-   */
   public getSmsStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       const { messageId } = req.params;
@@ -551,16 +569,9 @@ class SmsController {
     }
   };
 
-  /**
-   * Handle delivery reports from Africa's Talking API
-   */
   public handleDeliveryReport = async (req: Request, res: Response): Promise<void> => {
     try {
       console.log('Delivery report received:', req.body);
-      
-      // Process the delivery report as needed
-      // You may want to update the status in your database
-      
       res.json({
         success: true,
         message: 'Delivery report processed successfully'
@@ -576,13 +587,126 @@ class SmsController {
   };
 }
 
+// Flight Assistant WebSocket Controller
+class FlightAssistantController {
+  private wss: WebSocket.Server;
+
+  constructor(server: http.Server) {
+    this.wss = new WebSocket.Server({ server, path: '/ws' });
+    this.initialize();
+  }
+
+  private initialize(): void {
+    this.wss.on('connection', (ws: WebSocket) => {
+      console.log('WebSocket client connected');
+      
+      // Send welcome message
+      this.sendResponse(ws, {
+        response: 'Connected to flight assistant',
+        flight_data: null
+      });
+
+      ws.on('message', (message: WebSocket.Data) => {
+        this.handleMessage(ws, message);
+      });
+
+      ws.on('close', () => {
+        console.log('WebSocket client disconnected');
+      });
+
+      ws.on('error', (error: Error) => {
+        console.error('WebSocket error:', error);
+      });
+    });
+
+    console.log('WebSocket server initialized');
+  }
+
+  private async handleMessage(ws: WebSocket, data: WebSocket.Data): Promise<void> {
+    try {
+      const message = JSON.parse(data.toString());
+      console.log('Received message:', message);
+
+      // Process the message
+      const userQuery = message.message.toLowerCase();
+      let response = '';
+      let flightData = null;
+
+      // Simple flight query handler
+      if (userQuery.includes('flight status')) {
+        response = 'All of our flights are currently on time.';
+        flightData = {
+          allFlightsOnTime: true,
+          lastUpdated: new Date().toISOString()
+        };
+      } else if (userQuery.includes('book') && userQuery.includes('flight')) {
+        response = 'To book a flight, please use our booking form on the main page or tell me your departure city, destination, and preferred date.';
+      } else if (userQuery.includes('cancel') && userQuery.includes('reservation')) {
+        response = 'To cancel a reservation, please provide your booking reference number.';
+      } else if (userQuery.includes('luggage') || userQuery.includes('baggage')) {
+        response = 'Our standard baggage allowance is 23kg for checked luggage and 7kg for carry-on.';
+        flightData = {
+          baggagePolicy: {
+            checkedAllowance: '23kg',
+            carryOnAllowance: '7kg',
+            extraFees: 'Apply for excess baggage'
+          }
+        };
+      } else {
+        // Fetch available flights from the database for demonstration
+        try {
+          const flights = await prisma.flight.findMany({
+            take: 5,
+            orderBy: {
+              departureTime: 'asc'
+            }
+          });
+          
+          if (flights && flights.length > 0) {
+            response = 'Here are some of our upcoming flights:';
+            flightData = { availableFlights: flights };
+          } else {
+            response = "I'm your flight assistant. How can I help you today?";
+          }
+        } catch (error) {
+          console.error('Error fetching flights:', error);
+          response = "I'm your flight assistant. How can I help you with booking, flight status, or travel information?";
+        }
+      }
+
+      // Send response
+      this.sendResponse(ws, {
+        response,
+        flight_data: flightData
+      });
+    } catch (error) {
+      console.error('Error processing message:', error);
+      this.sendResponse(ws, {
+        response: 'Sorry, I encountered an error processing your request.',
+        flight_data: null
+      });
+    }
+  }
+
+  private sendResponse(ws: WebSocket, data: any): void {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(data));
+    }
+  }
+}
+
 // Initialize controllers
 const authController = new AuthController();
 const hotelController = new HotelController();
+const smsController = new SmsController();
 
 const app = express();
+const server = http.createServer(app);
 const router = express.Router();
 const port = process.env.PORT || 5000;
+
+// Initialize WebSocket controller
+const flightAssistantController = new FlightAssistantController(server);
 
 const corsOptions = {
   origin: ['http://localhost:5173', 'http://localhost:3000'],
@@ -595,7 +719,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ 
   verify: (req: ExtendedRequest, res: Response, buf: Buffer) => {
-    const url = req.url; // Using req.url instead of originalUrl
+    const url = req.url;
     if (url.startsWith('/api/payments/webhook')) {
       req.rawBody = buf.toString();
     }
@@ -610,33 +734,35 @@ router.post('/auth/signin', authController.signin);
 router.get('/hotels/search', hotelController.searchWithCriteria);
 router.post('/hotels/search', hotelController.searchWithCriteria);
 router.post('/hotels/book', hotelController.bookRoom);
-// Add the new route for checking room availability
 router.get('/hotels/rooms/:roomId/availability', hotelController.checkRoomAvailability);
 
-router.get('/flights/search', (req, res) => flightController.listFlights(req, res));
-router.get('/flights/:flightId', (req, res) => flightController.getFlightDetails(req, res));
-router.post('/flights/reserve', (req, res) => flightController.reserveFlight(req, res));
-router.post('/flights/reservations/:reservationId/cancel', (req, res) => flightController.cancelReservation(req, res));
+router.get('/bookings/active', authenticateToken, (req, res) => bookingController.getActiveBookings(req, res));
+router.post('/bookings/create', authenticateToken, (req, res) => bookingController.createBooking(req, res));
+router.delete('/bookings/:bookingId', authenticateToken, (req, res) => bookingController.cancelBooking(req, res));
+router.get('/bookings/:bookingId', authenticateToken, (req, res) => bookingController.getBookingDetails(req, res));
 
-// Payment routes
+// Flight routes
+router.get('/flights', flightController.listFlights.bind(flightController));
+router.get('/flights/search', flightController.listFlights.bind(flightController)); // Add explicit search endpoint
+router.get('/flights/active', flightController.getActiveFlights.bind(flightController));
+router.get('/flights/routes', flightController.getFlightRoutes.bind(flightController));
+router.get('/flights/:flightId', flightController.getFlightDetails.bind(flightController));
+router.post('/flights/reserve', flightController.reserveFlight.bind(flightController));
+router.post('/reservations/:reservationId/cancel', flightController.cancelReservation.bind(flightController));
+router.get('/analytics/booking-trends', flightController.getBookingTrends.bind(flightController));
+
 router.post('/payments/process', authenticateToken, (req, res) => paymentController.processPayment(req, res));
 router.get('/payments/:transactionId/status', authenticateToken, (req, res) => 
   paymentController.getPaymentStatus(req, res)
 );
 router.post('/payments/webhook/:provider', (req, res) => paymentController.handleWebhook(req, res));
-
-
-// Update the M-Pesa routes to use the correct method binding
 router.post('/payments/mpesa/stkpush', paymentController.StkPush);
 router.post('/payments/mpesa/callback', paymentController.callback);
 
-
-// Add SMS routes
 router.post('/notifications/sms/send', authenticateToken, (req, res) => smsController.sendSms(req, res));
 router.get('/notifications/sms/:messageId/status', authenticateToken, (req, res) => smsController.getSmsStatus(req, res));
 router.post('/notifications/sms/delivery-report', (req, res) => smsController.handleDeliveryReport(req, res));
 
-// Health check endpoints
 router.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -650,7 +776,6 @@ router.get('/db-health', async (_req: Request, res: Response) => {
       message: 'Database connection successful'
     });
   } catch (error) {
-    console.error('Database health check error:', error);
     res.status(500).json({ 
       status: 'error', 
       message: error instanceof Error ? error.message : 'Database connection error' 
@@ -658,12 +783,10 @@ router.get('/db-health', async (_req: Request, res: Response) => {
   }
 });
 
-// Mount all routes under /api
 app.use('/api', router);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
-  console.log('404 Not Found:', req.method, req.path);
   res.status(404).json({ 
     success: false,
     message: `Cannot ${req.method} ${req.path}`
@@ -675,20 +798,21 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Global error handler:', err);
   res.status(500).json({ 
     success: false,
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
-// Cleanup
 process.on('SIGINT', async () => {
   await prisma.$disconnect();
   process.exit();
 });
 
-app.listen(port, () => {
+// Use http.Server instead of app.listen
+server.listen(port, () => {
   console.log(`Server running on port ${port}`);
-  console.log('Available routes:');
+  console.log('Available endpoints:');
+  console.log('- WebSocket: ws://localhost:5000/ws');
   console.log('- POST /api/auth/signup');
   console.log('- POST /api/auth/signin');
   console.log('- GET  /api/hotels/search');
@@ -697,19 +821,18 @@ app.listen(port, () => {
   console.log('- GET  /api/hotels/rooms/:roomId/availability');
   console.log('- GET  /api/flights/search');
   console.log('- GET  /api/flights/:flightId');
-  console.log('- POST /api/flights/reserve'); 
+  console.log('- POST /api/flights/reserve');
   console.log('- POST /api/flights/reservations/:reservationId/cancel');
   console.log('- POST /api/payments/process');
   console.log('- GET  /api/payments/:transactionId/status');
   console.log('- POST /api/payments/webhook/:provider');
   console.log('- POST /api/payments/mpesa/stkpush');
   console.log('- POST /api/payments/mpesa/callback');
-  console.log('- POST /api/notifications/sms/send'); // New SMS route
-  console.log('- GET  /api/notifications/sms/:messageId/status'); // New SMS status route
-  console.log('- POST /api/notifications/sms/delivery-report'); // New delivery report webhook
+  console.log('- POST /api/notifications/sms/send');
+  console.log('- GET  /api/notifications/sms/:messageId/status');
+  console.log('- POST /api/notifications/sms/delivery-report');
   console.log('- GET  /api/health');
   console.log('- GET  /api/db-health');
-
 });
 
-export default app;
+export default server;

@@ -1,37 +1,27 @@
-// src/utils/errors.ts
-
 export class NotFoundError extends Error {
     constructor(message: string) {
-        super(message);
-        this.name = 'NotFoundError';
+      super(message);
+      this.name = 'NotFoundError';
     }
-}
-
-export class BadRequestError extends Error {
+  }
+  
+  export class BadRequestError extends Error {
     constructor(message: string) {
-        super(message);
-        this.name = 'BadRequestError';
+      super(message);
+      this.name = 'BadRequestError';
     }
-}
-
-// Add more custom error classes as needed
-export class UnauthorizedError extends Error {
+  }
+  
+  export class AuthenticationError extends Error {
     constructor(message: string) {
-        super(message);
-        this.name = 'UnauthorizedError';
+      super(message);
+      this.name = 'AuthenticationError';
     }
-}
-
-export class ForbiddenError extends Error {
+  }
+  
+  export class AuthorizationError extends Error {
     constructor(message: string) {
-        super(message);
-        this.name = 'ForbiddenError';
+      super(message);
+      this.name = 'AuthorizationError';
     }
-}
-
-export class ValidationError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = 'ValidationError';
-    }
-}
+  }

@@ -1,1203 +1,789 @@
 import os
 import logging
 import json
-import numpy as np
-import pandas as pd
-from typing import Dict, List, Tuple, Optional
-from datetime import datetime, timedelta
-import requests
-from fastapi import FastAPI, WebSocket, HTTPException
-from pydantic import BaseModel
-import asyncio
-import aiohttp
-import torch
-import torch.nn as nn
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.preprocessing import StandardScaler
-from prophet import Prophet
-import xgboost as xgb
-import re
 import random
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from collections import deque
-from typing import Dict, List, Tuple, Optional, Deque
-import json
 from datetime import datetime, timedelta
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+from typing import Dict, List, Optional, Any
+from collections import deque
+import aiohttp
+import asyncio
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import uvicorn
+import re
+from pathlib import Path
+
+print("Starting Flight Assistant service...")
+
+# Configure logging with both file and console output
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('flight_assistant.log'),
+        logging.StreamHandler()  # Add console logging
+    ]
+)
 logger = logging.getLogger(__name__)
 
-def setup_nltk():
-    """Download and verify all required NLTK resources"""
-    try:
-        # List of all required NLTK resources - removing punkt_tab as it's not a standard package
-        required_resources = [
-            'punkt',  # For sentence tokenization
-            'stopwords',  # For stopwords
-            'averaged_perceptron_tagger'  # For POS tagging
-        ]
-        
-        # Download all required resources
-        for package in required_resources:
-            nltk.download(package, quiet=True)
-        
-        # Verify resources are available
-        nltk.data.find('tokenizers/punkt')
-        nltk.data.find('corpora/stopwords')
-        nltk.data.find('taggers/averaged_perceptron_tagger')
-        
-        logger.info("NLTK resources successfully downloaded and verified")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error setting up NLTK resources: {str(e)}")
-        logger.info("Attempting alternative download method...")
-        try:
-            # Alternative download method
-            import ssl
-            try:
-                _create_unverified_https_context = ssl._create_unverified_context
-            except AttributeError:
-                pass
-            else:
-                ssl._create_default_https_context = _create_unverified_https_context
-            
-            nltk.download('all', quiet=True)  # Download all NLTK data
-            logger.info("Successfully downloaded all NLTK resources using alternative method")
-            return True
-            
-        except Exception as alt_e:
-            logger.error(f"Alternative download method failed: {str(alt_e)}")
-            raise
-    except Exception as e:
-        logger.error(f"Unexpected error setting up NLTK resources: {str(e)}")
-        raise
+# Define the absolute paths for data files
+CURRENT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+AIRLINE_DATA_PATH = CURRENT_DIR / 'airline_data.json'
+AIRPORT_DATA_PATH = CURRENT_DIR / 'airport_data.json'
+INTENTS_DATA_PATH = CURRENT_DIR / 'intents.json'  # Updated path to be relative
 
-# Call setup function before proceeding
-setup_nltk()
-
-# Define intent configuration
-INTENT_CONFIG = {
-    'intents': {
-        'flight_status': {
-            'responses': [
-                "Flight {flight_number} operated by {operator} is currently {status}.",
-                "The current status of flight {flight_number} is {status}."
-            ],
-            'context_required': ['flight_number']
-        },
-        'delay_prediction': {
-            'responses': [
-                "Based on current conditions, flight {flight_number} may experience a delay of approximately {delay_minutes} minutes.",
-                "We predict a possible {delay_minutes}-minute delay for flight {flight_number}."
-            ],
-            'context_required': ['flight_number']
-        },
-        'weather_impact': {
-            'responses': [
-                "Current weather conditions at the airport are {weather_condition}. You should {weather_impact}.",
-                "The weather is {weather_condition}, with {weather_impact} on flights."
-            ],
-            'context_required': ['flight_number']
-        },
-        'gate_information': {
-            'responses': [
-                "Your flight departs from Gate {gate_number} in Terminal {terminal}.",
-                "Please proceed to Gate {gate_number}, Terminal {terminal} for your flight."
-            ],
-            'context_required': ['flight_number']
-        },
-        'airport_status': {
-            'responses': [
-                "The airport is currently experiencing {congestion_level} congestion. Weather conditions are {weather_condition}.",
-                "Terminal congestion is {congestion_level} with {weather_condition} weather conditions."
-            ],
-            'context_required': ['airport_code']
-        },
-        'greeting': {
-            'responses': [
-                "Hello! How can I assist you today?",
-                "Hi there! What can I help you with?"
-            ],
-            'context_required': []
-        },
-         'destination_inquiry': {
-            'responses': [
-                "For travel to {destination}, we have flights available from {departure_airports}. Would you like to know specific flight options?",
-                "I can help you find flights to {destination}. Which city would you like to depart from?"
-            ],
-            'context_required': ['destination']
-        },
-        'baggage_inquiry': {
-            'responses': [
-                "For international flights, the standard baggage allowance is {baggage_allowance}.",
-                "The current baggage policy allows {baggage_allowance}. Would you like more specific information?"
-            ],
-            'context_required': []
-        },
-        'goodbye': {
-            'responses': [
-                "Goodbye! Have a safe and pleasant journey.",
-                "Thank you for using our services. Have a great day!",
-                "See you later! If you have more questions, feel free to ask."
-            ],
-            'context_required': []
-        },
-        
-        
+# Create fallback data files if they don't exist
+def create_fallback_data_files():
+    # Fallback airport data
+    fallback_airports = {
+        "JFK": {"name": "John F. Kennedy International Airport", "city": "New York", "country": "United States"},
+        "LAX": {"name": "Los Angeles International Airport", "city": "Los Angeles", "country": "United States"},
+        "LHR": {"name": "Heathrow Airport", "city": "London", "country": "United Kingdom"},
+        "SFO": {"name": "San Francisco International Airport", "city": "San Francisco", "country": "United States"},
+        "ORD": {"name": "O'Hare International Airport", "city": "Chicago", "country": "United States"}
     }
-}
-
-class ContextManager:
-    """Manages conversation context and required entities"""
-    def __init__(self):
-        self.context = {}
-        self.context_ttl = 300  # Time to live in seconds
-        self.last_update = datetime.now()
     
-    def update_context(self, entities: Dict):
-        """Update context with new entities"""
-        self.context.update(entities)
-        self.last_update = datetime.now()
-        self._clean_expired_context()
-    
-    def get_context(self, required_entities: List[str]) -> Tuple[Dict, List[str]]:
-        """Get current context and list of missing required entities"""
-        self._clean_expired_context()
-        missing_entities = [
-            entity for entity in required_entities 
-            if entity not in self.context
-        ]
-        return self.context.copy(), missing_entities
-    
-    def clear_context(self):
-        """Clear all context data"""
-        self.context = {}
-        self.last_update = datetime.now()
-    
-    def _clean_expired_context(self):
-        """Remove expired context based on TTL"""
-        if (datetime.now() - self.last_update).total_seconds() > self.context_ttl:
-            self.clear_context()
-
-class ConversationHistoryManager:
-    """Manages conversation history and provides context for responses"""
-    def __init__(self, max_history: int = 10):
-        self.history: Deque[Dict] = deque(maxlen=max_history)
-        self.session_data: Dict = {}
-    
-    def add_interaction(self, user_message: str, assistant_response: Dict):
-        """Add a new interaction to the history"""
-        self.history.append({
-            'timestamp': datetime.now().isoformat(),
-            'user_message': user_message,
-            'assistant_response': assistant_response,
-            'entities': assistant_response.get('entities', {})
-        })
-        
-        # Update session data with any new entities
-        if 'entities' in assistant_response:
-            self.session_data.update(assistant_response['entities'])
-    
-    def get_recent_context(self, lookback: int = 3) -> List[Dict]:
-        """Get recent conversation context"""
-        return list(self.history)[-lookback:]
-    
-    def get_last_intent(self) -> Optional[str]:
-        """Get the last processed intent"""
-        if self.history:
-            return self.history[-1]['assistant_response'].get('intent')
-        return None
-    
-    def get_session_data(self) -> Dict:
-        """Get accumulated session data"""
-        return self.session_data.copy()
-    
-    def clear_history(self):
-        """Clear conversation history"""
-        self.history.clear()
-        self.session_data.clear()
-
-class EnhancedFlightAssistant:
-    """Enhanced flight assistant with improved natural language understanding and context awareness"""
-    def __init__(self, intent_file_path: str):
-        self.intent_classifier = IntentClassifier(intent_file_path)
-        self.entity_extractor = EntityExtractor()
-        self.context_manager = ContextManager()
-        self.flight_data = MockFlightData()
-        self.delay_predictor = FlightDelayPredictor()
-        self.flow_predictor = PassengerFlowPredictor()
-        self.conversation_manager = ConversationHistoryManager()
-        
-        # Add new intents for broader coverage
-        self.additional_intents = {
-            'destination_inquiry': {
-                'patterns': [
-                    "how (can|do) I get to",
-                    "flights? to",
-                    "travel to",
-                    "going to"
-                ],
-                'responses': [
-                    "For travel to {destination}, we have flights available from {departure_airports}. Would you like to know specific flight options?",
-                    "I can help you find flights to {destination}. Which city would you like to depart from?"
-                ]
-            },
-            'baggage_inquiry': {
-                'patterns': [
-                    "baggage",
-                    "luggage",
-                    "goods",
-                    "check(ed)?",
-                    "carry[- ]?on",
-                    "customs"
-                ],
-                'responses': [
-                    "For international flights to {destination}, all checked baggage will go through customs inspection. The standard baggage allowance is {baggage_allowance}.",
-                    "Yes, all goods must be declared and may be inspected by customs at {destination}. Would you like information about baggage allowances?"
-                ]
-            },
-            'greeting': {
-                'patterns': [
-                    "hello",
-                    "hi",
-                    "hey",
-                    "good (morning|afternoon|evening)"
-                ],
-                'responses': [
-                    "Hello! How can I assist you with your travel plans today?",
-                    "Hi there! I can help you with flight information, baggage policies, and travel requirements. What would you like to know?"
-                ]
-            },
-
-            "goodbye": {
-            "patterns": [
-                "goodbye",
-                "bye",
-                "see you later",
-                "thanks bye",
-                "thank you goodbye",
-                "that's all",
-                "end",
-                "quit",
-                "bye bye"
-            ],
-            "responses": [
-                "Goodbye! Have a safe and pleasant journey.",
-                "Thank you for using our services. Have a great day!",
-                "See you later! If you have more questions, feel free to ask."
-            ],
-            'booking_inquiry': {
-        'responses': [
-            "I found {num_flights} flights from {origin} to {destination} on {date}. The best option is {airline} flight {flight_number} at {departure_time} for ${price}.",
-            "There are {num_flights} available flights matching your criteria. The most convenient is {airline} {flight_number}, departing {origin} at {departure_time}."
-        ],
-        'context_required': ['origin', 'destination', 'date']
-    },
-    
-    'seat_selection': {
-        'responses': [
-            "For flight {flight_number}, {available_seats} seats are available. {window_seats} window seats and {aisle_seats} aisle seats remain.",
-            "I can help you select a seat on flight {flight_number}. We have {available_seats} seats available in your preferred cabin class."
-        ],
-        'context_required': ['flight_number']
-    },
-    
-    'meal_preference': {
-        'responses': [
-            "The following meal options are available for flight {flight_number}: {meal_options}. Would you like to make a selection?",
-            "On your {flight_number} flight, we offer: {meal_options}. You can select your preference up to 24 hours before departure."
-        ],
-        'context_required': ['flight_number']
-    },
-    
-    'check_in_status': {
-        'responses': [
-            "Online check-in for flight {flight_number} {check_in_status}. {additional_info}",
-            "For flight {flight_number}, check-in {check_in_status}. {additional_info}"
-        ],
-        'context_required': ['flight_number']
-    },
-    
-    'frequent_flyer': {
-        'responses': [
-            "Flight {flight_number} will earn you {miles} miles. Your current balance is {current_miles} miles.",
-            "This journey will add {miles} miles to your account. You need {miles_to_next_tier} more miles for {next_tier} status."
-        ],
-        'context_required': ['flight_number', 'frequent_flyer_number']
-    },
-    
-    'connection_details': {
-        'responses': [
-            "Your connection in {connection_airport} is {connection_duration} minutes. Arrival at Terminal {arrival_terminal}, departure from Terminal {departure_terminal}.",
-            "At {connection_airport}, you'll have {connection_duration} minutes to transfer from Terminal {arrival_terminal} to Terminal {departure_terminal}."
-        ],
-        'context_required': ['flight_number']
-    },
-    
-    'travel_documents': {
-        'responses': [
-            "For travel to {destination}, you need: {required_documents}. Current processing time for visas is {visa_processing_time} days.",
-            "Required documents for {destination}: {required_documents}. Please ensure all documents are valid for at least {validity_requirement} months."
-        ],
-        'context_required': ['destination']
-    },
-    
-    'special_assistance': {
-        'responses': [
-            "I've noted your request for {assistance_type} assistance on flight {flight_number}. Please arrive {arrival_time} before departure.",
-            "Special assistance ({assistance_type}) has been arranged for flight {flight_number}. Check in at the special assistance counter in Terminal {terminal}."
-        ],
-        'context_required': ['flight_number', 'assistance_type']
-    },
-    
-    'flight_amenities': {
-        'responses': [
-            "Flight {flight_number} offers: {amenities}. WiFi is {wifi_status} on this route.",
-            "This aircraft is equipped with: {amenities}. Entertainment system: {entertainment_details}."
-        ],
-        'context_required': ['flight_number']
-    },
-    
-    'pet_travel': {
-        'responses': [
-            "For flight {flight_number}, we can accommodate {pet_type} in the {location}. The fee is ${pet_fee}.",
-            "Pet travel on flight {flight_number}: {pet_policy}. Required documents: {pet_documents}."
-        ],
-        'context_required': ['flight_number', 'pet_type']
+    # Fallback airline data
+    fallback_airlines = {
+        "AA": {"name": "American Airlines", "country": "United States"},
+        "DL": {"name": "Delta Air Lines", "country": "United States"},
+        "UA": {"name": "United Airlines", "country": "United States"},
+        "BA": {"name": "British Airways", "country": "United Kingdom"},
+        "LH": {"name": "Lufthansa", "country": "Germany"}
     }
+    
+    # Create airport data file if it doesn't exist
+    if not AIRPORT_DATA_PATH.exists():
+        with open(AIRPORT_DATA_PATH, 'w', encoding='utf-8') as f:
+            json.dump(fallback_airports, f, indent=2)
+            logger.info(f"Created fallback airport data at {AIRPORT_DATA_PATH}")
+    
+    # Create airline data file if it doesn't exist
+    if not AIRLINE_DATA_PATH.exists():
+        with open(AIRLINE_DATA_PATH, 'w', encoding='utf-8') as f:
+            json.dump(fallback_airlines, f, indent=2)
+            logger.info(f"Created fallback airline data at {AIRLINE_DATA_PATH}")
             
-            }
-
-        }
-        
-        self.intent_classifier.train()
-
-    async def process_message(self, message: str) -> Dict:
-        """Process incoming user message with improved context awareness"""
-        try:
-            # Extract location entities
-            locations = self._extract_locations(message)
-            
-            # Check for greeting intent first
-            if self._is_greeting(message.lower()):
-                return {
-                    'response': random.choice(self.additional_intents['greeting']['responses']),
-                    'intent': 'greeting'
+    # Create fallback intents file if it doesn't exist
+    if not INTENTS_DATA_PATH.exists():
+        fallback_intents = {
+            "intents": {
+                "greeting": {
+                    "examples": ["hello", "hi", "hey", "greetings", "good day", "what's up", "how are you"],
+                    "responses": ["Hello! How can I assist you with your flight today?", "Hi there! Need any flight information?", "Greetings! How may I help you with your travel plans?"]
+                },
+                "goodbye": {
+                    "examples": ["bye", "goodbye", "see you later", "farewell", "thanks bye"],
+                    "responses": ["Goodbye! Have a safe flight!", "Farewell! Thanks for using our flight assistant.", "See you later! Safe travels!"]
+                },
+                "thanks": {
+                    "examples": ["thanks", "thank you", "appreciate it", "helpful", "great help"],
+                    "responses": ["You're welcome!", "Happy to help!", "Anytime!", "Glad I could assist!"]
                 }
-            
-            # Check for destination inquiry
-            if locations and any(pattern in message.lower() for pattern in self.additional_intents['destination_inquiry']['patterns']):
-                destination = locations[0]
-                return await self._handle_destination_inquiry(destination)
-            
-            # Check for baggage/customs inquiry
-            if any(pattern in message.lower() for pattern in self.additional_intents['baggage_inquiry']['patterns']):
-                return await self._handle_baggage_inquiry(locations[0] if locations else None)
-            
-            # Fall back to regular intent classification
-            intent_data = self.intent_classifier.predict_intent(message)
-            entities = self.entity_extractor.extract_entities(message)
-            
-            # Update context with new information
-            self.context_manager.update_context(entities)
-            
-            # Get required context and check for missing entities
-            required_entities = intent_data['requires_context']
-            context, missing_entities = self.context_manager.get_context(required_entities)
-            
-            if missing_entities:
-                return self._generate_contextual_question(missing_entities[0], context)
-            
-            # Process intent with full context
-            entities.update(context)
-            response_data = await self._process_intent(intent_data['intent'], entities)
-            response = self._generate_response(intent_data['intent'], response_data, entities)
-            
-            return {
-                'response': response,
-                'intent': intent_data['intent'],
-                'confidence': intent_data['confidence'],
-                'entities': entities,
-                'additional_data': response_data
             }
+        }
+        with open(INTENTS_DATA_PATH, 'w', encoding='utf-8') as f:
+            json.dump(fallback_intents, f, indent=2)
+            logger.info(f"Created fallback intents data at {INTENTS_DATA_PATH}")
+
+# Create fallback data files if needed
+try:
+    create_fallback_data_files()
+except Exception as e:
+    logger.warning(f"Could not create fallback data files: {e}")
+
+
+class IntentManager:
+    """Manages loading and processing of intents"""
+    
+    def __init__(self, intents_path=None):
+        self.intents_path = intents_path or INTENTS_DATA_PATH
+        self.intents = self._load_intents()
+        logger.info(f"Intent Manager initialized with {len(self.intents.get('intents', {}))} intents")
+
+    def _load_intents(self) -> Dict:
+        try:
+            if Path(self.intents_path).exists():
+                with open(self.intents_path, 'r', encoding='utf-8') as f:
+                    logger.info(f"Loading intents from {self.intents_path}")
+                    data = json.load(f)
+                    logger.info(f"Loaded intents data type: {type(data)}")
+
+                    # Case 1: Correct format {"intents": {...}}
+                    if isinstance(data, dict) and "intents" in data:
+                        if isinstance(data["intents"], list):
+                            logger.info("Converting list-format intents to dictionary format")
+                            intents_dict = {}
+                            for item in data["intents"]:
+                                if "intent" in item and "examples" in item:
+                                    intent_name = item["intent"].lower()  # Normalize to lowercase
+                                    intents_dict[intent_name] = {
+                                        "examples": item["examples"],
+                                        "responses": item.get("responses", ["I understand you want to talk about " + intent_name])
+                                    }
+                            return {"intents": intents_dict}
+                        elif isinstance(data["intents"], dict):
+                            return data
+
+                    # Case 2: Bare dictionary without "intents" key
+                    if isinstance(data, dict) and "intents" not in data:
+                        logger.warning(f"No 'intents' key found, treating data as intents dictionary")
+                        return {"intents": data}
+
+                    # Case 3: Invalid format - return a fallback structure
+                    logger.error(f"Invalid intents format: {type(data)}. Using fallback intents.")
+                    return self._create_fallback_intents()
+            else:
+                logger.warning(f"Intents file not found at {self.intents_path}")
+                return self._create_fallback_intents()
+        except Exception as e:
+            logger.error(f"Error loading intents: {e}", exc_info=True)
+            return self._create_fallback_intents()
+    
+    def _create_fallback_intents(self) -> Dict:
+        """Create a fallback intents structure"""
+        return {
+            "intents": {
+                "greeting": {
+                    "examples": ["hello", "hi", "hey", "greetings", "good day"],
+                    "responses": ["Hello! How can I assist you with your flight today?"]
+                },
+                "goodbye": {
+                    "examples": ["bye", "goodbye", "see you later"],
+                    "responses": ["Goodbye! Have a safe flight!"]
+                }
+            }
+        }
+
+    def get_response_for_intent(self, intent_name: str) -> str:
+        """Get a random response for the given intent"""
+        try:
+            if not intent_name:
+                return None
+                
+            intents_dict = self.intents.get("intents", {})
+            
+            if not isinstance(intents_dict, dict):
+                logger.error(f"Expected intents to be a dict, got {type(intents_dict)}")
+                return None
+                
+            if intent_name in intents_dict:
+                intent_data = intents_dict[intent_name]
+                
+                if isinstance(intent_data, dict) and "responses" in intent_data:
+                    responses = intent_data["responses"]
+                    if isinstance(responses, list) and responses:
+                          return intent_name
+            
+            if best_score >= 0.6:
+                return best_intent
+            return None
+        except Exception as e:
+            logger.error(f"Error matching intent: {e}", exc_info=True)
+            return None   
             
         except Exception as e:
-            logger.error(f"Error processing message: {str(e)}")
-            return {
-                'response': "I apologize, but I need more information to help you. Could you please provide more details about your travel plans?",
-                'error': str(e)
-            }
+            logger.error(f"Error getting response for intent {intent_name}: {e}", exc_info=True)
+            return None
 
-    def _extract_locations(self, message: str) -> List[str]:
-        """Extract location names from message using NLP"""
-        # This would be enhanced with a proper NER model
-        common_cities = ['lagos', 'london', 'new york', 'dubai', 'paris']
-        words = message.lower().split()
-        return [word for word in words if word in common_cities]
-
-    def _is_greeting(self, message: str) -> bool:
-        """Check if message is a greeting"""
-        return any(pattern in message.lower() for pattern in self.additional_intents['greeting']['patterns'])
-
-    async def _handle_destination_inquiry(self, destination: str) -> Dict:
-        """Handle inquiries about traveling to specific destinations"""
-        # Mock data - would be replaced with real flight database
-        departure_airports = ['JFK', 'LHR', 'LAX']
-        response = self.additional_intents['destination_inquiry']['responses'][0].format(
-            destination=destination.title(),
-            departure_airports=', '.join(departure_airports)
-        )
+        # In the IntentManager class, improve the match_intent method
+    def match_intent(self, message: str) -> str:
+        """Match user message to an intent"""
+        try:
+            if not message:
+                return None
+                
+            message = message.lower().strip()
+            
+            # Direct matching for common greetings
+            common_greetings = ["hello", "hi", "hey", "greetings", "good day", "what's up", "how are you"]
+            if message in common_greetings:
+                return "greeting"
+                
+            best_intent = None
+            best_score = 0
+            
+            intents_dict = self.intents.get("intents", {})
+            
+            if not isinstance(intents_dict, dict):
+                logger.error(f"Expected intents to be a dict, got {type(intents_dict)}")
+                return None
+                
+            for intent_name, intent_data in intents_dict.items():
+                if not isinstance(intent_data, dict):
+                    logger.warning(f"Intent data for {intent_name} is not a dictionary: {type(intent_data)}")
+                    continue
+                    
+                examples = intent_data.get("examples", [])
+                if not isinstance(examples, list):
+                    logger.warning(f"Examples for {intent_name} is not a list: {type(examples)}")
+                    continue
+                    
+                for example in examples:
+                    if not isinstance(example, str):
+                        continue
+                        
+                    example_words = set(example.lower().split())
+                    if not example_words:
+                        continue
+                        
+                    message_words = set(message.split())
+                    common_words = example_words.intersection(message_words)
+                    
+                    score = len(common_words) / len(example_words) if example_words else 0
+                    
+                    if score > best_score:
+                        best_score = score
+                        best_intent = intent_name
+                        
+                    if re.search(r'\b' + re.escape(example.lower()) + r'\b', message):
+                        return intent_name
+            
+            if best_score >= 0.6:
+                return best_intent
+            return None
+        except Exception as e:
+            logger.error(f"Error matching intent: {e}", exc_info=True)
+            return None
+        
+class FlightDataConnector:
+    """Enhanced connector for flight data with improved caching and error handling"""
+    
+    def __init__(self, api_key=None, mock_mode=False):
+        self.api_key = api_key or os.environ.get("AVIATION_API_KEY")
+        self.base_url = "http://api.aviationstack.com/v1"  # Replace with actual API
+        self.cache = {}
+        self.cache_expiry = {}
+        self.cache_ttl = timedelta(minutes=15)
+        self.mock_mode = mock_mode or not self.api_key
+        self.airport_data = self._load_airport_data()
+        self.airline_data = self._load_airline_data()
+        logger.info(f"FlightDataConnector initialized. Mock mode: {self.mock_mode}")
+        
+    def _load_airport_data(self) -> Dict[str, Dict]:
+        try:
+            if AIRPORT_DATA_PATH.exists():
+                with open(AIRPORT_DATA_PATH, 'r', encoding='utf-8') as f:
+                    logger.info(f"Loading airport data from {AIRPORT_DATA_PATH}")
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        logger.warning("Airport data is a list, converting to dictionary")
+                        data_dict = {}
+                        for item in data:
+                            if isinstance(item, dict) and 'code' in item:
+                                data_dict[item['code']] = item
+                        return data_dict
+                    return data
+            else:
+                logger.warning(f"Airport data file not found at {AIRPORT_DATA_PATH}")
+        except Exception as e:
+            logger.warning(f"Error loading airport data: {e}")
+        logger.info("Using fallback airport data")
+        return {
+            "JFK": {"name": "John F. Kennedy International Airport", "city": "New York", "country": "United States"},
+            "LAX": {"name": "Los Angeles International Airport", "city": "Los Angeles", "country": "United States"},
+            "LHR": {"name": "Heathrow Airport", "city": "London", "country": "United Kingdom"},
+            "SFO": {"name": "San Francisco International Airport", "city": "San Francisco", "country": "United States"},
+            "ORD": {"name": "O'Hare International Airport", "city": "Chicago", "country": "United States"}
+        }
+    
+    def _load_airline_data(self) -> Dict[str, Dict]:
+        try:
+            if AIRLINE_DATA_PATH.exists():
+                with open(AIRLINE_DATA_PATH, 'r', encoding='utf-8') as f:
+                    logger.info(f"Loading airline data from {AIRLINE_DATA_PATH}")
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        logger.warning("Airline data is a list, converting to dictionary")
+                        data_dict = {}
+                        for item in data:
+                            if isinstance(item, dict) and 'code' in item:
+                                data_dict[item['code']] = item
+                        return data_dict
+                    return data
+            else:
+                logger.warning(f"Airline data file not found at {AIRLINE_DATA_PATH}")
+        except Exception as e:
+            logger.warning(f"Error loading airline data: {e}")
+        logger.info("Using fallback airline data")
+        return {
+            "AA": {"name": "American Airlines", "country": "United States"},
+            "DL": {"name": "Delta Air Lines", "country": "United States"},
+            "UA": {"name": "United Airlines", "country": "United States"},
+            "BA": {"name": "British Airways", "country": "United Kingdom"},
+            "LH": {"name": "Lufthansa", "country": "Germany"}
+        }
+            
+    async def get_flight_status(self, flight_number: str, date: str = None) -> Dict:
+        logger.debug(f"Fetching flight status for {flight_number} on {date}")
+        flight_number = flight_number.upper().replace(' ', '')
+        date = date or datetime.now().strftime("%Y-%m-%d")
+        
+        try:
+            if date in ['today', 'TODAY']:
+                date = datetime.now().strftime("%Y-%m-%d")
+            elif date in ['tomorrow', 'TOMORROW']:
+                tomorrow = datetime.now() + timedelta(days=1)
+                date = tomorrow.strftime("%Y-%m-%d")
+            elif not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
+                if re.match(r'^\d{2}/\d{2}/\d{4}$', date):
+                    month, day, year = date.split('/')
+                    date = f"{year}-{month}-{day}"
+                else:
+                    logger.warning(f"Invalid date format: {date}. Using today.")
+                    date = datetime.now().strftime("%Y-%m-%d")
+        except Exception as e:
+            logger.warning(f"Error parsing date: {e}")
+            date = datetime.now().strftime("%Y-%m-%d")
+            
+        cache_key = f"{flight_number}_{date}"
+        
+        if cache_key in self.cache and datetime.now() < self.cache_expiry.get(cache_key, datetime.min):
+            logger.info(f"Cache hit for {cache_key}")
+            return self.cache[cache_key]
+            
+        if self.mock_mode:
+            flight_data = self._generate_mock_data(flight_number, date)
+            self.cache[cache_key] = flight_data
+            self.cache_expiry[cache_key] = datetime.now() + self.cache_ttl
+            return flight_data
+            
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{self.base_url}/flights",
+                    params={"flight_iata": flight_number, "date": date, "api_key": self.api_key},
+                    timeout=aiohttp.ClientTimeout(total=5)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if not data.get('data'):
+                            logger.warning(f"No flight data for {flight_number}")
+                            return self._generate_mock_data(flight_number, date)
+                        flight_info = data['data'][0]
+                        flight_data = self._process_flight_info(flight_info, flight_number)
+                        self.cache[cache_key] = flight_data
+                        self.cache_expiry[cache_key] = datetime.now() + self.cache_ttl
+                        return flight_data
+                    else:
+                        logger.error(f"API error: Status {response.status}")
+                        return self._generate_mock_data(flight_number, date)
+        except Exception as e:
+            logger.error(f"Error fetching flight data: {e}", exc_info=True)
+            return self._generate_mock_data(flight_number, date)
+            
+    def _process_flight_info(self, flight_info: Dict, flight_number: str) -> Dict:
+        flight_data = {
+            "flight_number": flight_number,
+            "operator": flight_info.get("airline", {}).get("name", "Unknown Airline"),
+            "status": flight_info.get("flight_status", "Unknown").capitalize(),
+            "departure_airport": flight_info.get("departure", {}).get("iata", ""),
+            "arrival_airport": flight_info.get("arrival", {}).get("iata", ""),
+            "scheduled_departure": flight_info.get("departure", {}).get("scheduled", ""),
+            "estimated_departure": flight_info.get("departure", {}).get("estimated", ""),
+            "scheduled_arrival": flight_info.get("arrival", {}).get("scheduled", ""),
+            "estimated_arrival": flight_info.get("arrival", {}).get("estimated", ""),
+            "terminal": flight_info.get("departure", {}).get("terminal", ""),
+            "gate": flight_info.get("departure", {}).get("gate", ""),
+            "delay_minutes": self._calculate_delay(flight_info),
+            "baggage_claim": flight_info.get("arrival", {}).get("baggage", "")
+        }
+        self._enhance_flight_data(flight_data)
+        return flight_data
+    
+    def _enhance_flight_data(self, flight_data: Dict):
+        if flight_data["departure_airport"] in self.airport_data:
+            flight_data.update({
+                "departure_airport_name": self.airport_data[flight_data["departure_airport"]]["name"],
+                "departure_city": self.airport_data[flight_data["departure_airport"]]["city"]
+            })
+        if flight_data["arrival_airport"] in self.airport_data:
+            flight_data.update({
+                "arrival_airport_name": self.airport_data[flight_data["arrival_airport"]]["name"],
+                "arrival_city": self.airport_data[flight_data["arrival_airport"]]["city"]
+            })
+        
+        try:
+            dep_str = flight_data["scheduled_departure"]
+            arr_str = flight_data["scheduled_arrival"]
+            
+            if dep_str and arr_str:
+                if '+' in dep_str:
+                    dep_str = dep_str.split('+')[0]
+                if '+' in arr_str:
+                    arr_str = arr_str.split('+')[0]
+                    
+                dep_dt = datetime.fromisoformat(dep_str.replace('Z', ''))
+                arr_dt = datetime.fromisoformat(arr_str.replace('Z', ''))
+                
+                duration = arr_dt - dep_dt
+                hours, remainder = divmod(duration.seconds, 3600)
+                minutes = remainder // 60
+                flight_data["duration"] = f"{hours}h {minutes}m"
+            else:
+                flight_data["duration"] = "Unknown"
+        except Exception as e:
+            logger.warning(f"Error calculating duration: {e}")
+            flight_data["duration"] = "Unknown"
+    
+    def _calculate_delay(self, data: Dict) -> int:
+        try:
+            scheduled_str = data.get("departure", {}).get("scheduled", "")
+            estimated_str = data.get("departure", {}).get("estimated", "")
+            
+            if not scheduled_str or not estimated_str:
+                return 0
+                
+            if '+' in scheduled_str:
+                scheduled_str = scheduled_str.split('+')[0]
+            if '+' in estimated_str:
+                estimated_str = estimated_str.split('+')[0]
+                
+            scheduled = datetime.fromisoformat(scheduled_str.replace('Z', ''))
+            estimated = datetime.fromisoformat(estimated_str.replace('Z', ''))
+            
+            delay = (estimated - scheduled).total_seconds() / 60
+            return max(0, int(delay))
+        except Exception as e:
+            logger.warning(f"Error calculating delay: {e}")
+            return 0
+            
+    def _generate_mock_data(self, flight_number: str, date: str) -> Dict:
+        airline_code = flight_number[:2] if len(flight_number) >= 2 else "AA"
+        operator = self.airline_data.get(airline_code, {"name": "Unknown Airline"})["name"]
+        airports = list(self.airport_data.keys())
+        dep = random.choice(airports)
+        arr = random.choice([a for a in airports if a != dep])
+        status = random.choice(["Scheduled", "In Flight", "Landed", "Delayed"])
+        delay = random.randint(0, 60) if status == "Delayed" else 0
+        
+        try:
+            if date == datetime.now().strftime("%Y-%m-%d"):
+                date_obj = datetime.now()
+            else:
+                year, month, day = date.split('-')
+                date_obj = datetime(int(year), int(month), int(day))
+        except:
+            date_obj = datetime.now()
+            
+        dep_time = datetime.combine(date_obj.date(), datetime.now().time())
+        arr_time = dep_time + timedelta(hours=random.randint(1, 5))
         
         return {
-            'response': response,
-            'intent': 'destination_inquiry',
-            'entities': {'destination': destination}
+            "flight_number": flight_number,
+            "operator": operator,
+            "status": status,
+            "departure_airport": dep,
+            "departure_airport_name": self.airport_data[dep]["name"],
+            "departure_city": self.airport_data[dep]["city"],
+            "arrival_airport": arr,
+            "arrival_airport_name": self.airport_data[arr]["name"],
+            "arrival_city": self.airport_data[arr]["city"],
+            "scheduled_departure": dep_time.isoformat(),
+            "estimated_departure": (dep_time + timedelta(minutes=delay)).isoformat(),
+            "scheduled_arrival": arr_time.isoformat(),
+            "estimated_arrival": (arr_time + timedelta(minutes=delay)).isoformat(),
+            "terminal": random.choice(["A", "B", "C"]),
+            "gate": f"G{random.randint(1, 20)}",
+            "delay_minutes": delay,
+            "baggage_claim": random.choice(["", "B3"]) if status == "Landed" else "",
+            "duration": f"{random.randint(1, 5)}h {random.randint(0, 59)}m"
         }
 
-    async def _handle_baggage_inquiry(self, destination: Optional[str]) -> Dict:
-        """Handle inquiries about baggage and customs"""
-        baggage_allowance = "2 checked bags up to 23kg each"
-        
-        if destination:
-            response = self.additional_intents['baggage_inquiry']['responses'][0].format(
-                destination=destination.title(),
-                baggage_allowance=baggage_allowance
-            )
-        else:
-            response = ("All checked baggage must go through security screening. "
-                       f"The standard allowance is {baggage_allowance}. "
-                       "Would you like information about a specific destination?")
-        
-        return {
-            'response': response,
-            'intent': 'baggage_inquiry',
-            'entities': {'destination': destination} if destination else {}
-        }
 
-    def _generate_contextual_question(self, missing_entity: str, context: Dict) -> Dict:
-        """Generate context-aware questions for missing information"""
-        if missing_entity == 'flight_number':
-            if 'destination' in context:
-                return {
-                    'response': f"I see you're interested in traveling to {context['destination']}. "
-                               "Do you have a specific flight number you'd like to check?",
-                    'missing_entities': [missing_entity]
-                }
-            return {
-                'response': "Could you please provide your flight number?",
-                'missing_entities': [missing_entity]
-            }
+class ContextManager:
+    def __init__(self, ttl=900):
+        self.context = {}
+        self.ttl = timedelta(seconds=ttl)
+        self.state = 'initial'
+        self.history = deque(maxlen=10)
         
-        # Add more contextual questions as needed
-        return super()._generate_missing_entity_response(missing_entity)
-  
-class MockFlightData:
-    """Mock flight data provider"""
-    def __init__(self):
-        self.flight_statuses = ['ON_TIME', 'DELAYED', 'BOARDING', 'DEPARTED', 'ARRIVED']
-        self.weather_conditions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Rain', 'Thunderstorm']
-        
-    async def get_flight_info(self, flight_number: str) -> Dict:
-        """Get mock flight information"""
-        return {
-            'flight_number': flight_number,
-            'operator': random.choice(['Delta', 'United', 'American', 'Southwest']),
-            'status': random.choice(self.flight_statuses),
-            'departure': {
-                'airport': 'JFK',
-                'scheduled': datetime.now().isoformat(),
-                'estimated': (datetime.now() + timedelta(minutes=random.randint(-30, 60))).isoformat()
-            },
-            'arrival': {
-                'airport': 'LAX',
-                'scheduled': (datetime.now() + timedelta(hours=6)).isoformat(),
-                'estimated': (datetime.now() + timedelta(hours=6, minutes=random.randint(-30, 60))).isoformat()
-            }
-        }
+    def update(self, entities: Dict):
+        now = datetime.now()
+        for k, v in entities.items():
+            if v:
+                self.context[k] = {'value': v, 'timestamp': now}
+        self._clean()
     
-    async def get_airport_info(self, airport_code: str) -> Dict:
-        """Get mock airport information"""
-        return {
-            'code': airport_code,
-            'name': f'{airport_code} International Airport',
-            'weather': {
-                'condition': random.choice(self.weather_conditions),
-                'temperature': random.randint(15, 30),
-                'wind_speed': random.randint(0, 30),
-                'visibility': random.randint(3, 15)
-            },
-            'num_flights': random.randint(50, 200)
-        }
+    def get(self) -> Dict:
+        self._clean()
+        return {k: v['value'] for k, v in self.context.items()}
+    
+    def set_state(self, state: str):
+        logger.info(f"State change: {self.state} -> {state}")
+        self.state = state
+    
+    def get_state(self) -> str:
+        return self.state
+    
+    def _clean(self):
+        now = datetime.now()
+        self.context = {k: v for k, v in self.context.items() if (now - v['timestamp']) < self.ttl}
 
-class FlightDelayPredictor:
-    """Predicts flight delays based on various factors"""
-    def __init__(self):
-        self.delay_factors = [
-            'Weather conditions',
-            'Airport congestion',
-            'Airline operations',
-            'Time of day'
-        ]
-    
-    def predict_delay(self, departure_time: datetime, weather: Dict) -> Tuple[float, List[str]]:
-        """Predict delay and return contributing factors"""
-        base_delay = random.randint(0, 45)
-        
-        if weather['condition'] in ['Thunderstorm', 'Snow']:
-            base_delay += random.randint(30, 90)
-        elif weather['condition'] == 'Rain':
-            base_delay += random.randint(15, 45)
-        
-        factors = []
-        if base_delay > 30:
-            factors.extend(random.sample(self.delay_factors, 2))
-        elif base_delay > 0:
-            factors.append(random.choice(self.delay_factors))
-        
-        return float(base_delay), factors
+    def reset(self):
+        self.context = {}
+        self.state = 'initial'
+        self.history.clear()
+        return {"status": "context_reset", "message": "Conversation context has been reset."}
 
-class PassengerFlowPredictor:
-    """Predicts passenger flow levels at airports"""
-    def __init__(self):
-        self.flow_levels = ['LOW', 'MODERATE', 'HIGH', 'VERY HIGH']
-    
-    def predict_flow(self, current_state: Dict) -> Tuple[str, float]:
-        """Predict passenger flow level and confidence"""
-        hour = current_state['time_of_day']
-        is_peak = 7 <= hour <= 9 or 16 <= hour <= 19
-        is_weekend = current_state['day_of_week'] >= 5
-        
-        if is_peak and (is_weekend or current_state['is_holiday']):
-            flow_level = 'VERY HIGH'
-        elif is_peak:
-            flow_level = 'HIGH'
-        elif is_weekend:
-            flow_level = 'MODERATE'
-        else:
-            flow_level = 'LOW'
-        
-        confidence = random.uniform(0.7, 0.95)
-        return flow_level, confidence
-
-class IntentClassifier:
-    """Enhanced intent classification using TF-IDF and Random Forest"""
-    def __init__(self, intent_file_path: str):
-        self.vectorizer = TfidfVectorizer(ngram_range=(1, 3))
-        self.classifier = RandomForestClassifier(n_estimators=100)
-        self.intent_patterns = {}
-        self.trained = False
-        self.stop_words = set(stopwords.words('english'))
-        self.intent_config = INTENT_CONFIG
-        
-    def _generate_training_data(self):
-        """Generate training data from intent patterns"""
-        X = []
-        y = []
-        
-        patterns = {
-            'flight_status': [
-                "What's the status of flight {flight_number}",
-                "Is flight {flight_number} on time",
-                "Check flight {flight_number} status"
-            ],
-            'delay_prediction': [
-                "Will flight {flight_number} be delayed",
-                "Is there a delay for {flight_number}",
-                "Delay prediction for {flight_number}"
-            ],
-            'weather_impact': [
-                "How's the weather affecting flights",
-                "Weather impact on flight {flight_number}",
-                "Will weather delay flight {flight_number}"
-            ],
-            'gate_information': [
-                "What gate is flight {flight_number}",
-                "Which terminal for {flight_number}",
-                "Where does flight {flight_number} depart from"
-            ],
-            'airport_status': [
-                "How busy is {airport_code} airport",
-                "What's the situation at {airport_code}",
-                "Current status of {airport_code} airport"
-            ],
-            'greeting': [
-            "hello",
-            "hi",
-            "hey",
-            "good morning",
-            "good afternoon",
-            "good evening",
-            "hi there",
-            "hello there",
-            "greetings"
-        ],
-        'goodbye': [
-            "goodbye",
-            "bye",
-            "see you later",
-            "thanks bye",
-            "thank you goodbye",
-            "that's all",
-            "end",
-            "quit",
-            "bye bye"
-        ],
-        'destination_inquiry': [
-            "how can I get to {destination}",
-            "flights to {destination}",
-            "travel to {destination}",
-            "going to {destination}"
-        ],
-        'baggage_inquiry': [
-            "what's the baggage allowance",
-            "baggage policy",
-            "luggage restrictions",
-            "checked baggage",
-            "carry on limits"
-        ],
-        'booking_inquiry': [
-            "I want to book a flight to {destination}",
-            "Show me flights from {origin} to {destination}",
-            "What flights are available on {date}",
-            "Find flights between {origin} and {destination}",
-            "Book a ticket to {destination}",
-            "Flight options for {date}",
-            "How much is a flight to {destination}"
-        ],
-        'seat_selection': [
-            "Can I choose my seat",
-            "Show available seats for flight {flight_number}",
-            "Is there a window seat available",
-            "Change my seat assignment",
-            "What seats are free on flight {flight_number}",
-            "Select seats for my flight",
-            "Are there any aisle seats left"
-        ],
-        'meal_preference': [
-            "What meal options are available",
-            "Can I request a special meal",
-            "Change my meal choice",
-            "Dietary restrictions for flight {flight_number}",
-            "Is there a vegetarian option",
-            "Food options on the flight",
-            "Request halal meal"
-        ],
-        'check_in_status': [
-            "Can I check in now",
-            "Is online check-in open for {flight_number}",
-            "Start check-in process",
-            "When does check-in open",
-            "Help with check-in",
-            "Check-in time for flight {flight_number}",
-            "Where can I check in"
-        ],
-        'frequent_flyer': [
-            "How many miles will I earn",
-            "Add my frequent flyer number",
-            "Check my miles balance",
-            "Miles for flight {flight_number}",
-            "Update loyalty program",
-            "Points for this trip",
-            "Distance to next tier"
-        ],
-        'connection_details': [
-            "Information about my connection",
-            "How long is my layover",
-            "Connection time in {connection_airport}",
-            "Which terminal is my connecting flight",
-            "Do I have enough time to connect",
-            "Details about transfer",
-            "Terminal change for connection"
-        ],
-        'travel_documents': [
-            "What documents do I need",
-            "Visa requirements for {destination}",
-            "Do I need a passport",
-            "Required documents for travel",
-            "ID requirements for flight",
-            "Travel documents for {destination}",
-            "Passport validity requirements"
-        ],
-        'special_assistance': [
-            "Request wheelchair assistance",
-            "Help for elderly passenger",
-            "Traveling with infant",
-            "Need special assistance",
-            "Arrange wheelchair at airport",
-            "Assistance for disabled passenger",
-            "Unaccompanied minor service"
-        ],
-        'flight_amenities': [
-            "Is there WiFi on board",
-            "What entertainment is available",
-            "In-flight services",
-            "Does the flight have power outlets",
-            "Movies on the flight",
-            "Internet availability",
-            "What's included in business class"
-        ],
-        'pet_travel': [
-            "Can I bring my pet",
-            "Flying with a dog",
-            "Pet in cabin policy",
-            "Cost for pet transport",
-            "Service animal requirements",
-            "Traveling with cats",
-            "Pet carrier dimensions"
-        ]
-        
-        }
-        
-        for intent, intent_patterns in patterns.items():
-            for pattern in intent_patterns:
-                variations = self._generate_pattern_variations(pattern)
-                X.extend(variations)
-                y.extend([intent] * len(variations))
-        
-        return X, y
-    
-    def _generate_pattern_variations(self, pattern: str) -> List[str]:
-        """Generate variations of patterns for better training"""
-        variations = [pattern]
-        pattern_with_examples = (pattern
-            .replace("{flight_number}", "AA123")
-            .replace("{airport_code}", "JFK")
-        )
-        variations.append(pattern_with_examples)
-        
-        prefixes = [
-            "Could you tell me",
-            "I need to know",
-            "Please",
-            "Can you check",
-            "I want to know"
-        ]
-        
-        for prefix in prefixes:
-            variations.append(f"{prefix} {pattern}")
-        
-        return variations
-    
-    def preprocess_text(self, text: str) -> str:
-        """Preprocess text using NLTK"""
-        tokens = word_tokenize(text.lower())
-        tokens = [token for token in tokens if token not in self.stop_words]
-        return " ".join(tokens)
-    
-    def train(self):
-        """Train the intent classifier"""
-        X, y = self._generate_training_data()
-        X = [self.preprocess_text(text) for text in X]
-        X_tfidf = self.vectorizer.fit_transform(X)
-        self.classifier.fit(X_tfidf, y)
-        self.trained = True
-    
-    def predict_intent(self, text: str) -> Dict:
-        """Predict intent for given text"""
-        if not self.trained:
-            raise ValueError("Model needs to be trained first")
-        
-        processed_text = self.preprocess_text(text)
-        X_tfidf = self.vectorizer.transform([processed_text])
-        intent = self.classifier.predict(X_tfidf)[0]
-        probabilities = self.classifier.predict_proba(X_tfidf)[0]
-        
-        return {
-            'intent': intent,
-            'confidence': float(np.max(probabilities)),
-            'requires_context': self.intent_config['intents'][intent]['context_required']
-        }
 
 class EntityExtractor:
-    """Enhanced entity extraction using regex patterns"""
     def __init__(self):
+        self.connector = FlightDataConnector(mock_mode=True)
+        self.airports = self.connector.airport_data
         self.patterns = {
-            'flight_number': r'([A-Z]{2})\s*(\d{3,4})',
-            'airport_code': r'\b([A-Z]{3})\b'
+            'flight_number': r'\b([A-Z]{2,3})\s*(\d{1,4}[A-Z]?)\b',
+            'airport_code': r'\b([A-Z]{3})\b',
+            'date': r'\b(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}|today|tomorrow)\b'
         }
     
     def extract_entities(self, text: str) -> Dict:
-        """Extract entities from text using regex patterns"""
+        if not text:
+            return {}
         entities = {}
+        text_upper = text.upper()
         
-        for entity_type, pattern in self.patterns.items():
-            matches = re.findall(pattern, text.upper())
-            if matches:
-                if entity_type == 'flight_number':
-                    entities[entity_type] = f"{matches[0][0]}{matches[0][1]}"
-                else:
-                    entities[entity_type] = matches[0]
-        
-        date_pattern = r'\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b'
-        time_pattern = r'\b\d{1,2}:\d{2}\b'
-        
-        date_matches = re.findall(date_pattern, text)
-        time_matches = re.findall(time_pattern, text)
-        
-        if date_matches:
-            entities['date'] = date_matches[0]
-        if time_matches:
-            entities['time'] = time_matches[0]
-        
+        for key, pattern in self.patterns.items():
+            match = re.search(pattern, text_upper)
+            if match:
+                if key == 'flight_number':
+                    entities[key] = f"{match.group(1)}{match.group(2)}"
+                elif key == 'airport_code' and match.group(1) in self.airports:
+                    entities[key] = match.group(1)
+                elif key == 'date':
+                    entities[key] = match.group(1)
+                    if entities[key] in ['TODAY', 'TOMORROW']:
+                        entities[key] = (datetime.now() + timedelta(days=1 if entities[key] == 'TOMORROW' else 0)).strftime('%Y-%m-%d')
         return entities
 
-class EnhancedFlightAssistant:
-    """Enhanced flight assistant with improved NLU capabilities"""
-    def __init__(self, intent_file_path: str):
-        self.intent_classifier = IntentClassifier(intent_file_path)
-        self.entity_extractor = EntityExtractor()
-        self.context_manager = ContextManager()
-        self.flight_data = MockFlightData()
-        self.delay_predictor = FlightDelayPredictor()
-        self.flow_predictor = PassengerFlowPredictor()
-        
-        self.intent_classifier.train()
 
-    async def process_message(self, message: str) -> Dict:
-        """Process incoming user message"""
-        try:
-            intent_data = self.intent_classifier.predict_intent(message)
-            entities = self.entity_extractor.extract_entities(message)
-
-            self.context_manager.update_context(entities)
-            required_entities = intent_data['requires_context']
-            context, missing_entities = self.context_manager.get_context(required_entities)
-            
-            if missing_entities:
-                return {
-                    'response': self._generate_missing_entity_response(missing_entities[0]),
-                    'missing_entities': missing_entities,
-                    'intent': intent_data['intent']
-                }
-            
-            entities.update(context)
-            response_data = await self._process_intent(intent_data['intent'], entities)
-            response = self._generate_response(intent_data['intent'], response_data, entities)
-            
-            return {
-                'response': response,
-                'intent': intent_data['intent'],
-                'confidence': intent_data['confidence'],
-                'entities': entities,
-                'additional_data': response_data
-            }
-            
-        except Exception as e:
-            logger.error(f"Error processing message: {str(e)}")
-            return {
-                'response': "I apologize, but I'm having trouble processing your request.",
-                'error': str(e)
-            }
-    
-    def _generate_missing_entity_response(self, missing_entity: str) -> str:
-        """Generate response requesting missing information"""
-        templates = {
-            'flight_number': [
-                "Could you please provide the flight number?",
-                "I'll need the flight number to help you with that.",
-                "What's your flight number?"
-            ],
-            'airport_code': [
-                "Which airport are you interested in?",
-                "Could you specify the airport code?",
-                "Which airport would you like information about?"
-            ]
+class ResponseGenerator:
+    def __init__(self, intent_manager=None):
+        self.intent_manager = intent_manager or IntentManager()
+        self.templates = {
+            "flight_status": "Flight {flight_number} operated by {operator} from {departure_city} ({departure_airport}) to {arrival_city} ({arrival_airport}) is currently {status}. {additional_info}",
+            "delay_info": "Flight {flight_number} is delayed by {delay_minutes} minutes. The updated departure time is {estimated_departure}.",
+            "no_delay": "Flight {flight_number} is on schedule.",
+            "gate_info": "Flight {flight_number} departs from Gate {gate}, Terminal {terminal}.",
+            "generic_error": "I couldn't find that flight. Please provide more details.",
+            "ask_flight_number": "Please provide a flight number (like AA123).",
+            "default_greeting": "Hello! How can I assist you with your flight today?"
         }
+    
+    def generate_response(self, message: str, flight_data: Dict = None, intent: str = None) -> str:
+        """Generate a text response based on intent and flight data"""
+        # Check for specific intent responses first
+        if intent:
+            intent_response = self.intent_manager.get_response_for_intent(intent)
+            if intent_response:
+                return intent_response
         
-        return random.choice(templates.get(missing_entity, ["Could you provide more information?"]))
-
-    async def _process_intent(self, intent: str, entities: Dict) -> Dict:
-        """Process the intent and return relevant data"""
-        response_data = {}
+        # Handle greeting specifically
+        if intent == "greeting" or message.lower().strip() in ["hello", "hi", "hey", "greetings"]:
+            return self.templates.get("default_greeting", "Hello! How can I assist you with your flight today?")
         
-        try:
-            if 'flight_number' in entities:
-                flight_info = await self.flight_data.get_flight_info(entities['flight_number'])
-                response_data['flight_info'] = flight_info
-                
-                if intent == 'delay_prediction':
-                    dep_airport = await self.flight_data.get_airport_info(
-                        flight_info['departure']['airport']
-                    )
-                    delay_prediction, delay_factors = self.delay_predictor.predict_delay(
-                        datetime.now() + timedelta(hours=1),
-                        dep_airport['weather']
-                    )
-                    response_data['delay_prediction'] = {
-                        'predicted_delay': float(delay_prediction),
-                        'factors': delay_factors
-                    }
-                
-                elif intent == 'weather_impact':
-                    dep_airport = await self.flight_data.get_airport_info(
-                        flight_info['departure']['airport']
-                    )
-                    response_data['weather_impact'] = {
-                        'conditions': dep_airport['weather'],
-                        'impact_level': self._assess_weather_impact(dep_airport['weather'])
-                    }
-                
-                elif intent == 'gate_information':
-                    response_data['gate_info'] = self._generate_gate_info(flight_info)
-                
-                elif intent == 'connection_info':
-                    response_data['connection_info'] = self._generate_connection_info(flight_info)
+        # Handle flight data if available
+        if flight_data:
+            additional_info = ""
+            if flight_data.get('status') == 'Delayed':
+                additional_info = f"It's delayed by {flight_data.get('delay_minutes')} minutes."
+            elif flight_data.get('gate'):
+                additional_info = f"It departs from Gate {flight_data.get('gate')}, Terminal {flight_data.get('terminal')}."
             
-            elif 'airport_code' in entities:
-                airport_info = await self.flight_data.get_airport_info(entities['airport_code'])
-                response_data['airport_info'] = airport_info
-                
-                if intent == 'airport_status':
-                    current_state = {
-                        'time_of_day': datetime.now().hour,
-                        'day_of_week': datetime.now().weekday(),
-                        'is_holiday': self._is_holiday(datetime.now()),
-                        'num_flights': airport_info.get('num_flights', 100),
-                        'weather_condition': self._get_weather_condition_code(
-                            airport_info['weather']['condition']
-                        )
-                    }
-                    
-                    flow_level, flow_confidence = self.flow_predictor.predict_flow(current_state)
-                    response_data['passenger_flow'] = {
-                        'level': flow_level,
-                        'confidence': flow_confidence
-                    }
+            response = self.templates["flight_status"].format(
+                additional_info=additional_info,
+                **flight_data
+            )
+            return response
         
-        except Exception as e:
-            logger.error(f"Error processing intent {intent}: {str(e)}")
-            response_data['error'] = str(e)
+        # If no intent matched and no flight data, check if asking about flight status
+        if "flight status" in message.lower() or "my flight" in message.lower():
+            return self.templates["ask_flight_number"]
+        
+        # Fallback to generic response
+        return self.templates["generic_error"]
+
+class FlightAssistant:
+    def __init__(self, api_key=None, mock_mode=True):
+        self.connector = FlightDataConnector(api_key, mock_mode)
+        self.context_mgr = ContextManager()
+        self.entity_extractor = EntityExtractor()
+        self.intent_manager = IntentManager()
+        self.response_generator = ResponseGenerator(self.intent_manager)
+        logger.info("Flight Assistant initialized")
+    
+    def reset_context(self):
+        return self.context_mgr.reset()
+
+        # In the FlightAssistant class, improve the process_message method
+    async def process_message(self, message: str) -> Dict:
+        logger.info(f"Processing message: {message}")
+        
+        if not message or message.strip() == "":
+            return {
+                "text": "I didn't receive any message. How can I help you with your flight?",
+                "response": "I didn't receive any message. How can I help you with your flight?",
+                "entities": {},
+                "flight_data": None,
+                "intent": None
+            }
+        
+        entities = self.entity_extractor.extract_entities(message)
+        self.context_mgr.update(entities)
+        
+        # Match intent with improved handling for greetings
+        intent = self.intent_manager.match_intent(message)
+        
+        # Better handling for greetings
+        message_lower = message.lower().strip()
+        common_greetings = ["hello", "hi", "hey", "greetings", "good day", "what's up", "how are you"]
+        if intent is None and any(greeting == message_lower for greeting in common_greetings):
+            intent = "greeting"
+        
+        flight_number = entities.get('flight_number') or self.context_mgr.get().get('flight_number')
+        date = entities.get('date') or self.context_mgr.get().get('date')
+        
+        # Only fetch flight data if intent is not a greeting
+        flight_data = None
+        if flight_number and intent != "greeting":
+            flight_data = await self.connector.get_flight_status(flight_number, date)
+            self.context_mgr.set_state('flight_identified')
+        
+        # Prioritize intent response for greeting
+        response_text = None
+        if intent == "greeting":
+            response_text = self.intent_manager.get_response_for_intent(intent)
+            if not response_text:
+                response_text = "Hello! How can I assist you with your flight today?"
+        
+        # If no response from intent, generate response based on flight data
+        if not response_text:
+            response_text = self.response_generator.generate_response(message, flight_data, intent)
+        
+        # Return both text response and structured data
+        response_data = {
+            "text": response_text,  # Plain text response for direct display
+            "response": response_text,  # Keep the original 'response' key for backward compatibility
+            "entities": entities,
+            "flight_data": flight_data,
+            "intent": intent
+        }
         
         return response_data
-    
-    def _assess_weather_impact(self, weather: Dict) -> str:
-        """Assess the impact of weather conditions on flights"""
-        impact_level = "minimal"
-        
-        if weather['condition'] in ['Thunderstorm', 'Snow', 'Heavy Rain']:
-            impact_level = "severe"
-        elif weather['wind_speed'] > 25:
-            impact_level = "significant"
-        elif weather['visibility'] < 5:
-            impact_level = "moderate"
-        elif weather['condition'] in ['Rain', 'Cloudy'] or weather['wind_speed'] > 15:
-            impact_level = "slight"
-        
-        return impact_level
-    
-    def _generate_gate_info(self, flight_info: Dict) -> Dict:
-        """Generate gate and terminal information"""
-        terminal = random.choice(['A', 'B', 'C', 'D'])
-        gate = f"{terminal}{random.randint(1, 20)}"
-        
-        return {
-            'departure_terminal': terminal,
-            'departure_gate': gate,
-            'boarding_time': (datetime.fromisoformat(flight_info['departure']['scheduled']) 
-                            - timedelta(minutes=30)).isoformat()
-        }
-    
-    def _generate_connection_info(self, flight_info: Dict) -> Dict:
-        """Generate connection information"""
-        connection_time = random.randint(45, 180)
-        arrival_terminal = random.choice(['A', 'B', 'C', 'D'])
-        next_terminal = random.choice(['A', 'B', 'C', 'D'])
-        
-        return {
-            'connection_time': connection_time,
-            'arrival_terminal': arrival_terminal,
-            'next_terminal': next_terminal,
-            'next_gate': f"{next_terminal}{random.randint(1, 20)}",
-            'transfer_time_estimate': self._estimate_transfer_time(arrival_terminal, next_terminal)
-        }
-    
-    def _estimate_transfer_time(self, from_terminal: str, to_terminal: str) -> int:
-        """Estimate transfer time between terminals"""
-        if from_terminal == to_terminal:
-            return random.randint(5, 15)
-        else:
-            return random.randint(15, 45)
-    
-    def _is_holiday(self, date: datetime) -> bool:
-        """Check if a given date is a holiday"""
-        # Mock implementation - could be replaced with actual holiday calendar
-        return False
-    
-    def _get_weather_condition_code(self, condition: str) -> int:
-        """Convert weather condition to numeric code"""
-        conditions = {
-            'Clear': 0,
-            'Partly Cloudy': 1,
-            'Cloudy': 2,
-            'Rain': 3,
-            'Thunderstorm': 4
-        }
-        return conditions.get(condition, 0)
 
-    def _generate_response(self, intent: str, response_data: Dict, entities: Dict) -> str:
-        """Generate natural language response with improved error handling"""
-        if 'error' in response_data:
-            return "I apologize, but I encountered an error while processing your request."
+
+app = FastAPI(title="Flight Assistant API")
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_credentials=True, 
+    allow_methods=["*"], 
+    allow_headers=["*"]
+)
+
+assistant = FlightAssistant(mock_mode=os.environ.get("MOCK_MODE", "true").lower() == "true")
+
+@app.post("/api/message")
+async def process_message_endpoint(request: Request) -> Dict:
+    try:
+        request_data = await request.json()
+        message = request_data.get("message", "")
+        if not message:
+            return JSONResponse(content={"error": "No message provided"}, status_code=400)
         
-        try:
-            templates = INTENT_CONFIG['intents'][intent]['responses']
-            template = random.choice(templates)
-            
-            # Initialize format data with defaults to prevent KeyError
-            format_data = {
-                'congestion_level': 'normal',  # Default value
-                'weather_condition': 'clear',   # Default value
-                'flight_number': '',
-                'operator': '',
-                'status': '',
-                'delay_minutes': 0,
-                'gate_number': '',
-                'terminal': '',
-                'weather_impact': ''
-            }
-            
-            # Update with provided entities
-            format_data.update(entities)
-            
-            # Update with flight information
-            if 'flight_info' in response_data:
-                flight = response_data['flight_info']
-                format_data.update({
-                    'status': flight['status'].replace('_', ' ').title(),
-                    'operator': flight['operator']
-                })
-            
-            # Update with delay prediction
-            if 'delay_prediction' in response_data:
-                format_data['delay_minutes'] = int(response_data['delay_prediction']['predicted_delay'])
-            
-            # Update with weather impact
-            if 'weather_impact' in response_data:
-                weather = response_data['weather_impact']
-                format_data.update({
-                    'weather_condition': weather['conditions']['condition'],
-                    'weather_impact': f"expect {weather['impact_level']} impact"
-                })
-            
-            # Update with gate information
-            if 'gate_info' in response_data:
-                gate = response_data['gate_info']
-                format_data.update({
-                    'gate_number': gate['departure_gate'],
-                    'terminal': gate['departure_terminal']
-                })
-            
-            # Update with airport and passenger flow information
-            if 'airport_info' in response_data and 'passenger_flow' in response_data:
-                flow_data = response_data['passenger_flow']
-                weather_data = response_data['airport_info'].get('weather', {})
-                
-                format_data.update({
-                    'congestion_level': flow_data.get('level', 'normal').lower(),
-                    'weather_condition': weather_data.get('condition', 'clear').lower()
-                })
-            
-            # Generate response using template
-            try:
-                response = template.format(**format_data)
-            except KeyError as ke:
-                logger.error(f"Template formatting error: Missing key {ke}")
-                # Fallback response based on intent
-                fallback_responses = {
-                    'airport_status': f"The airport is currently experiencing {format_data['congestion_level']} congestion.",
-                    'flight_status': f"Flight {format_data['flight_number']} is {format_data['status']}.",
-                    'delay_prediction': f"Predicted delay: {format_data['delay_minutes']} minutes.",
-                    'weather_impact': f"Current weather is {format_data['weather_condition']}.",
-                    'gate_information': f"Gate {format_data['gate_number']} in Terminal {format_data['terminal']}."
-                }
-                response = fallback_responses.get(intent, "I have the information but am having trouble formatting the response.")
-            
-            # Add additional context if available
-            additional_info = []
-            if 'passenger_flow' in response_data:
-                flow = response_data['passenger_flow']
-                if 'level' in flow:
-                    additional_info.append(
-                        f"Terminal congestion is currently {flow['level'].lower()}."
-                    )
-            
-            if 'weather_impact' in response_data and intent != 'weather_impact':
-                impact = response_data['weather_impact']['impact_level']
-                additional_info.append(
-                    f"Weather conditions are expected to have {impact} impact."
-                )
-            
-            if additional_info:
-                response += f" {' '.join(additional_info)}"
-            
-            return response
-                
-        except Exception as e:
-            logger.error(f"Error generating response: {str(e)}")
-            return f"I understand your request about {intent}, but I'm having trouble formulating a response."
+        response = await assistant.process_message(message)
+        return JSONResponse(content=response)
+    except Exception as e:
+        logger.error(f"Error processing REST request: {e}", exc_info=True)
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
-            
-            additional_info = []
-            if 'passenger_flow' in response_data:
-                flow = response_data['passenger_flow']
-                if 'level' in flow:
-                    additional_info.append(
-                        f"Terminal congestion is currently {flow['level'].lower()}."
-                    )
-            
-            if 'weather_impact' in response_data and intent != 'weather_impact':
-                impact = response_data['weather_impact']['impact_level']
-                additional_info.append(
-                    f"Weather conditions are expected to have {impact} impact."
-                )
-            
-            if additional_info:
-                response += f" {' '.join(additional_info)}"
-            
-            return response
-                
-        except Exception as e:
-            logger.error(f"Error generating response: {str(e)}")
-            return f"I understand your request about {intent}, but I'm having trouble formulating a response."
-
-# FastAPI application setup
-app = FastAPI(title="Enhanced Flight Assistant API")
-
-# Update the WebSocket endpoint to maintain conversation state per connection
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time communication with conversation state"""
     await websocket.accept()
-    
+    logger.info(f"WebSocket connection accepted: {websocket.client}")
     try:
-        # Initialize assistant with intent file path
-        intent_file_path = os.path.join(os.path.dirname(__file__), 'intents.json')
-        assistant = EnhancedFlightAssistant(intent_file_path)
-        
         while True:
-            data = await websocket.receive_json()
-            
-            # Check for conversation reset command
-            if data.get('command') == 'reset_conversation':
-                assistant.conversation_manager.clear_history()
-                await websocket.send_json({
-                    'response': 'Conversation history has been reset.',
-                    'status': 'reset_successful'
-                })
-                continue
-            
-            response = await assistant.process_message(data['message'])
-            await websocket.send_json(response)
-            
+            data = await websocket.receive_text()
+            logger.debug(f"Received WebSocket data: {data}")
+            try:
+                request_data = json.loads(data)
+                message = request_data.get("message")
+                if message:
+                    response = await assistant.process_message(message)
+                    await websocket.send_json(response)
+                    logger.debug(f"Sent response: {response}")
+                elif request_data.get("action") == "reset":
+                    result = assistant.reset_context()
+                    await websocket.send_json(result)
+                    logger.debug(f"Reset context: {result}")
+            except json.JSONDecodeError:
+                response = await assistant.process_message(data)
+                await websocket.send_json(response)
+                logger.debug(f"Sent response for raw message: {response}")
+    
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket client disconnected: {websocket.client}")
     except Exception as e:
-        logger.error(f"WebSocket error: {str(e)}")
-        await websocket.close()
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+        try:
+            await websocket.send_json({
+                "error": str(e),
+                "response": "Sorry, an error occurred while processing your request."
+            })
+        except:
+            pass
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.get("/")
+async def root():
+    return {
+        "message": "Flight Assistant API is running",
+        "endpoints": {
+            "REST API": "/api/message",
+            "WebSocket": "/ws",
+            "Health Check": "/health"
+        },
+        "timestamp": datetime.now().isoformat()
+    }
+
+def find_available_port(start_port=8000, max_attempts=5):
+    """Try to find an available port starting from start_port"""
+    import socket
+    
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind(('0.0.0.0', port))
+            sock.close()
+            return port
+        except OSError:
+            continue
+    
+    return start_port
+
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    try:
+        port_env = os.environ.get("PORT")
+        port = int(port_env) if port_env else None
+        
+        if not port:
+            port = find_available_port()
             
-            
+        print(f"Starting Flight Assistant server on port {port}...")
+        logger.info(f"Starting server on port {port}")
+        
+        uvicorn.run(
+            app, 
+            host="0.0.0.0", 
+            port=port,
+            log_level="info"
+        )
+    except Exception as e:
+        logger.error(f"Server startup failed: {e}", exc_info=True)
+        print(f"Error starting server: {e}")
+
+
